@@ -1,0 +1,132 @@
+.pio_version 1
+
+; --------------------------------------------------------------------
+.program vsync
+; --------------------------------------------------------------------
+; setup:
+; - rxfifo[0]: number of vsync lines
+; - rxfifo[1]: number of (back_porch+pixel+front_porch) lines
+; --------------------------------------------------------------------
+
+.fifo txget
+.side_set 1 opt
+
+.wrap_target
+    ; ---- vsync pulse lines -------
+    mov osr, rxfifo[0]   side 0    ; set no vsync pulse
+    mov x, osr
+sync_loop:
+    irq 4                side 1    ; notify hsync program, start vsync pulse
+
+    ; wait for one line
+    mov osr, rxfifo[2]
+    mov y, osr
+sync_line_loop:
+    jmp y-- sync_line_loop [1]
+
+    jmp x-- sync_loop
+
+    ; ---- other lines -------------
+    mov osr, rxfifo[1]   side 0    ; stop vsync pulse
+    mov x, osr
+other_loop:
+    irq 4                          ; notify hsync program
+
+    ; wait for one line
+    mov osr, rxfifo[2]
+    mov y, osr
+other_line_loop:
+    jmp y-- other_line_loop [1]
+
+    jmp x-- other_loop
+.wrap
+
+; --------------------------------------------------------------------
+.program hsync
+; --------------------------------------------------------------------
+; setup:
+; - rxfifo[0]: number of hsync pixels
+; - rxfifo[1]: number of back_porch pixels
+; --------------------------------------------------------------------
+
+.fifo txget
+.side_set 1 opt
+
+.wrap_target
+    wait 1 irq 4              side 0   ; set no hsync pulse, wait for vsync program
+
+    ; hsync pulse
+    mov osr, rxfifo[0]        side 1   ; start hsync pulse
+    mov x, osr
+sync_loop:
+    jmp x-- sync_loop         [1]
+
+    ; back porch
+    mov osr, rxfifo[1]        side 0    ; stop vsync pulse
+    mov x, osr
+back_porch_loop:
+    jmp x-- back_porch_loop   [1]
+
+    irq 5                               ; notify pixels program
+.wrap
+
+; --------------------------------------------------------------------
+.program pixels
+; --------------------------------------------------------------------
+; setup:
+; - rxfifo[0]: number of vsync lines
+; - rxfifo[1]: number of (back_porch+pixel+front_porch) lines
+; --------------------------------------------------------------------
+
+.fifo tx
+
+    out y, 32      ; load line length (in pixels)
+
+.wrap_target    
+    mov x, y
+    wait irq 5     ; wait for hsync program
+send_line:
+    out pins, 8    ; write 1 pixel
+    jmp x-- send_line
+
+    mov pins, null ; set color to 0 during blank period
+.wrap
+
+%c-sdk {
+static inline void vsync_program_init(PIO pio, uint sm, uint offset, uint pin, uint pulse_polarity, float clock_div) {
+    pio_sm_set_pindirs_with_mask(pio, sm, 1u<<pin, 1u<<pin);
+    pio_gpio_init(pio, pin);
+    gpio_set_outover(pin, pulse_polarity ? GPIO_OVERRIDE_INVERT : GPIO_OVERRIDE_NORMAL);
+
+    pio_sm_config cfg = vsync_program_get_default_config(offset);
+    sm_config_set_sideset_pin_base(&cfg, pin);
+    sm_config_set_clkdiv(&cfg, clock_div);
+    pio_sm_init(pio, sm, offset, &cfg);
+}
+
+static inline void hsync_program_init(PIO pio, uint sm, uint offset, uint pin, uint pulse_polarity, float clock_div) {
+    pio_sm_set_pindirs_with_mask(pio, sm, 1u<<pin, 1u<<pin);
+    pio_gpio_init(pio, pin);
+    gpio_set_outover(pin, pulse_polarity ? GPIO_OVERRIDE_INVERT : GPIO_OVERRIDE_NORMAL);
+
+    pio_sm_config cfg = hsync_program_get_default_config(offset);
+    sm_config_set_sideset_pin_base(&cfg, pin);
+    sm_config_set_clkdiv(&cfg, clock_div);
+    pio_sm_init(pio, sm, offset, &cfg);
+}
+
+static inline void pixels_program_init(PIO pio, uint sm, uint offset, uint pin_base, float clock_div) {
+    const uint pin_count = 8;
+    for (uint i = 0; i < pin_count; i++) {
+        pio_gpio_init(pio, pin_base+i);
+    }
+    pio_sm_set_pindirs_with_mask(pio, sm, 0xffu<<pin_base, 0xffu<<pin_base);
+
+    pio_sm_config cfg = pixels_program_get_default_config(offset);
+    sm_config_set_out_pins(&cfg, pin_base, pin_count);
+    sm_config_set_out_shift(&cfg, true, true, 0);
+    sm_config_set_clkdiv(&cfg, clock_div);
+    pio_sm_init(pio, sm, offset, &cfg);
+}
+
+%}
