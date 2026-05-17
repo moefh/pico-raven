@@ -41,10 +41,9 @@ struct VGA_SCREEN {
     };
 };
 
-int vga_init(const struct VGA_MODE *mode, uint32_t pio_num, uint32_t pin_out_base, bool round_clock_div);
+int vga_init(const struct VGA_MODE *mode, uint32_t pio_num, uint32_t pin_out_base, bool adjust_sys_clock);
 void vga_clear_screen(uint8_t color);
 void vga_swap_buffers(bool wait_sync);
-uint32_t vga_get_nearest_sys_clock_hz(const struct VGA_MODE *mode, uint32_t mult_boost);
 
 extern struct VGA_SCREEN vga_screen;
 

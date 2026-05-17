@@ -149,16 +149,70 @@ static void setup_pio_dma(PIO pio, uint sm)
     irq_set_enabled(DMA_IRQ_0, true);
 }
 
-static void init_pio(uint32_t pio_num, uint32_t pin_out_base, bool round_clock_div)
+/**
+ * Try to find a system clock frequency that's an integer multiple of
+ * the pixel clock for the given mode. Return a frequency that will be
+ * accepted by `set_sys_clock_hz()`, or 0 if not found.
+ */
+static uint32_t get_nearest_sys_clock_hz(const struct VGA_MODE *mode, uint32_t mult_boost)
 {
-    DEBUG("vga mode: pixel_clock=%d, full_w=%d, full_h=%d\n", PIX_CLOCK_MHZ, H_FULL_LINE, V_FULL_FRAME);
+    uint mult = clock_get_hz(clk_sys) / (mode->pixel_clock_mhz * 2);
+    if (mult % (mode->pixel_clock_mhz * 2) != 0) mult++;
+    uint freq_hz = mode->pixel_clock_mhz * 2 * (mult + mult_boost);
+    if (freq_hz > 200000000) return 0;  // refuse to consider anything above 200MHz
+    uint best_freq = 0;
+    uint best_diff = UINT_MAX;
 
-    uint f_clk_sys = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_SYS);
-    float clock_div = ((float)f_clk_sys * 1000.f) / (float)PIX_CLOCK_MHZ / 2.0;
-    if (round_clock_div) {
-        clock_div = round(clock_div * 10.0) / 10.0;
+    // this was taken from the pico sdk function `check_sys_clock_hz()`:
+    uint reference_freq_hz = XOSC_HZ / PLL_SYS_REFDIV;
+    for (uint fbdiv = 320; fbdiv >= 16; fbdiv--) {
+        uint vco_hz = fbdiv * reference_freq_hz;
+        if (vco_hz < PICO_PLL_VCO_MIN_FREQ_HZ || vco_hz > PICO_PLL_VCO_MAX_FREQ_HZ) continue;
+        for (uint postdiv1 = 7; postdiv1 >= 1; postdiv1--) {
+            for (uint postdiv2 = postdiv1; postdiv2 >= 1; postdiv2--) {
+                uint out = vco_hz / (postdiv1 * postdiv2);
+                if (vco_hz % (postdiv1 * postdiv2) == 0) {
+                    uint32_t diff = (out > freq_hz) ? out - freq_hz : freq_hz - out;
+                    if (diff < best_diff) {
+                        best_diff = diff;
+                        best_freq = out;
+                        if (diff == 0) {
+                            return best_freq;
+                        }
+                    }
+                }
+            }
+        }
     }
-    DEBUG("clock div is %f\n", clock_div);
+    return best_freq;
+}
+
+static void init_pio(uint32_t pio_num, uint32_t pin_out_base, bool adjust_sys_clock)
+{
+    DEBUG("vga mode: pixel_clock=%d, full_w=%d, full_h=%d\n", (int)PIX_CLOCK_MHZ, H_FULL_LINE, V_FULL_FRAME);
+
+    uint32_t sys_freq;
+    if (adjust_sys_clock) {
+        sys_freq = get_nearest_sys_clock_hz(vga_mode, 0);
+        if (sys_freq == 0) {
+            sys_freq = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_SYS) * 1000;
+            DEBUG("can't get good clock for VGA, proceeding with current clock: %d MHz\n", (int) sys_freq);
+        } else {
+            DEBUG("setting system clock to %d MHz for best VGA output\n", (int) sys_freq);
+            set_sys_clock_hz(sys_freq, true);
+        }
+    } else {
+        sys_freq = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_SYS) * 1000;
+    }
+
+    float clock_div = (float)sys_freq / (float)PIX_CLOCK_MHZ / 2.0;
+    clock_div = round(clock_div);
+    DEBUG("system clock: %d MHz\n", (int) sys_freq);
+    DEBUG("PIO clock div: %f\n", clock_div);
+    DEBUG("VGA pixel clock: 2 * %f = %f (%f%% off)\n",
+          sys_freq / clock_div / 2.0,
+          sys_freq / clock_div,
+          100.0 * fabs(((sys_freq / clock_div / 2.0) - (float)PIX_CLOCK_MHZ)) / PIX_CLOCK_MHZ);
 
     PIO pio = pio_get_instance(pio_num);
     uint vsync_sm = pio_claim_unused_sm(pio, true);
@@ -266,44 +320,6 @@ static int init_buffers(int num_framebuffers)
 }
 
 // === INTERFACE ====================================================
-
-/**
- * Try to find a system clock frequency that's an integer multiple of
- * the pixel clock for the given mode. Return a frequency that will be
- * accepted by `set_sys_clock_hz()`, or 0 if not found.
- */
-uint32_t vga_get_nearest_sys_clock_hz(const struct VGA_MODE *mode, uint32_t mult_boost)
-{
-    uint mult = clock_get_hz(clk_sys) / (mode->pixel_clock_mhz * 2);
-    if (mult % (mode->pixel_clock_mhz * 2) != 0) mult++;
-    uint freq_hz = mode->pixel_clock_mhz * 2 * (mult + mult_boost);
-    if (freq_hz > 200000000) return 0;  // refuse to consider anything above 200MHz
-    uint best_freq = 0;
-    uint best_diff = UINT_MAX;
-
-    // this was taken from the pico sdk function `check_sys_clock_hz()`:
-    uint reference_freq_hz = XOSC_HZ / PLL_SYS_REFDIV;
-    for (uint fbdiv = 320; fbdiv >= 16; fbdiv--) {
-        uint vco_hz = fbdiv * reference_freq_hz;
-        if (vco_hz < PICO_PLL_VCO_MIN_FREQ_HZ || vco_hz > PICO_PLL_VCO_MAX_FREQ_HZ) continue;
-        for (uint postdiv1 = 7; postdiv1 >= 1; postdiv1--) {
-            for (uint postdiv2 = postdiv1; postdiv2 >= 1; postdiv2--) {
-                uint out = vco_hz / (postdiv1 * postdiv2);
-                if (vco_hz % (postdiv1 * postdiv2) == 0) {
-                    uint32_t diff = (out > freq_hz) ? out - freq_hz : freq_hz - out;
-                    if (diff < best_diff) {
-                        best_diff = diff;
-                        best_freq = out;
-                        if (diff == 0) {
-                            return best_freq;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    return best_freq;
-}
 
 void vga_swap_buffers(bool wait_sync)
 {
