@@ -222,18 +222,19 @@ static void init_pio(uint32_t pio_num, uint32_t pin_out_base, bool adjust_sys_cl
     // pixels program
     uint pixels_offset = pio_add_program(pio, &pixels_program);
     pixels_program_init(pio, pixels_sm, pixels_offset, pin_out_base, clock_div);
-    pio_sm_set_enabled(pio, pixels_sm, true);  // stall waiting for irq from hsync program
+    pio_sm_set_enabled(pio, pixels_sm, true);
     pio_sm_put_blocking(pio, pixels_sm, H_PIXELS-1);
     pio_sm_set_enabled(pio, pixels_sm, false);
     setup_pio_dma(pio, pixels_sm);
-    pio_sm_set_enabled(pio, pixels_sm, true);
+    pio_sm_set_enabled(pio, pixels_sm, true);  // stall waiting for irq from hsync program
     DEBUG("initialized pixels sm\n");
 
     // hsync program
     uint hsync_offset = pio_add_program(pio, &hsync_program);
     hsync_program_init(pio, hsync_sm, hsync_offset, pin_out_base+8, H_POLARITY, clock_div);
-    pio->rxf_putget[hsync_sm][0] = H_SYNC_PULSE-3;
-    pio->rxf_putget[hsync_sm][1] = H_BACK_PORCH-2; //H_BACK_PORCH-3;
+    pio->rxf_putget[hsync_sm][0] = H_BACK_PORCH - 2;
+    pio->rxf_putget[hsync_sm][1] = H_PIXELS + H_FRONT_PORCH - 2;
+    pio->rxf_putget[hsync_sm][2] = H_SYNC_PULSE - 3;
     pio_sm_set_enabled(pio, hsync_sm, true);  // stall waiting for irq from vsync program
     DEBUG("initialized hsync sm: %d, %d\n", H_SYNC_PULSE, H_BACK_PORCH);
 
@@ -241,8 +242,9 @@ static void init_pio(uint32_t pio_num, uint32_t pin_out_base, bool adjust_sys_cl
     uint vsync_offset = pio_add_program(pio, &vsync_program);
     vsync_program_init(pio, vsync_sm, vsync_offset, pin_out_base+9, V_POLARITY, clock_div);
     pio->rxf_putget[vsync_sm][0] = V_SYNC_PULSE - 1;
-    pio->rxf_putget[vsync_sm][1] = V_FRONT_PORCH+V_BACK_PORCH+V_PIXELS - 1;
-    pio->rxf_putget[vsync_sm][2] = H_FULL_LINE - 3;
+    pio->rxf_putget[vsync_sm][1] = V_FRONT_PORCH + V_BACK_PORCH + V_PIXELS - 1;
+    pio->rxf_putget[vsync_sm][2] = H_FULL_LINE - 2;
+    // don't enable vsync program here; do it in vga_init() to start everything
     DEBUG("initialized vsync sm: %d+%d=%d, %d\n",
           V_SYNC_PULSE,
           (V_FRONT_PORCH+V_BACK_PORCH+V_PIXELS),

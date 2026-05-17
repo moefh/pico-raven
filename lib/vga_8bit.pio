@@ -4,8 +4,9 @@
 .program vsync
 ; --------------------------------------------------------------------
 ; setup:
-; - rxfifo[0]: number of vsync lines
-; - rxfifo[1]: number of (back_porch+pixel+front_porch) lines
+; - rxfifo[0]: number of vsync lines - 1
+; - rxfifo[1]: number of (back_porch+image+front_porch) lines - 1
+; - rxfifo[2]: number of (back_porch+color+front_porch+hsync) pixels - 2
 ; --------------------------------------------------------------------
 
 .fifo txget
@@ -45,8 +46,9 @@ other_line_loop:
 .program hsync
 ; --------------------------------------------------------------------
 ; setup:
-; - rxfifo[0]: number of hsync pixels
-; - rxfifo[1]: number of back_porch pixels
+; - rxfifo[0]: number of back_porch pixels - 2
+; - rxfifo[1]: number of (color + front_porch) pixels - 2
+; - rxfifo[2]: number of hsync_pixels - 3
 ; --------------------------------------------------------------------
 
 .fifo txget
@@ -55,32 +57,37 @@ other_line_loop:
 .wrap_target
     wait 1 irq 4              side 0   ; set no hsync pulse, wait for vsync program
 
-    ; hsync pulse
-    mov osr, rxfifo[0]        side 1   ; start hsync pulse
-    mov x, osr
-sync_loop:
-    jmp x-- sync_loop         [1]
-
     ; back porch
-    mov osr, rxfifo[1]        side 0    ; stop vsync pulse
+    mov osr, rxfifo[0]
     mov x, osr
 back_porch_loop:
     jmp x-- back_porch_loop   [1]
 
     irq 5                               ; notify pixels program
+
+    ; pixels + front porch
+    mov osr, rxfifo[1]        side 0
+    mov x, osr
+pixels_front_loop:
+    jmp x-- pixels_front_loop [1]
+
+    ; sync
+    mov osr, rxfifo[2]        side 1    ; stop hsync pulse
+    mov x, osr
+sync_loop:
+    jmp x-- sync_loop         [1]
 .wrap
 
 ; --------------------------------------------------------------------
 .program pixels
 ; --------------------------------------------------------------------
 ; setup:
-; - rxfifo[0]: number of vsync lines
-; - rxfifo[1]: number of (back_porch+pixel+front_porch) lines
+; - TX FIFO: number of visible pixels - 1
 ; --------------------------------------------------------------------
 
 .fifo tx
 
-    out y, 32      ; load line length (in pixels)
+    out y, 32      ; load line length (in pixels) - 1
 
 .wrap_target    
     mov x, y
