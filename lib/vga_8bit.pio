@@ -55,7 +55,7 @@ other_line_loop:
 .side_set 1 opt
 
 .wrap_target
-    wait 1 irq 4              side 0   ; set no hsync pulse, wait for vsync program
+    wait 1 irq 4              side 0   ; stop hsync pulse, wait for vsync program
 
     ; back porch
     mov osr, rxfifo[0]
@@ -72,7 +72,7 @@ pixels_front_loop:
     jmp x-- pixels_front_loop [1]
 
     ; sync
-    mov osr, rxfifo[2]        side 1    ; stop hsync pulse
+    mov osr, rxfifo[2]        side 1    ; start hsync pulse
     mov x, osr
 sync_loop:
     jmp x-- sync_loop         [1]
