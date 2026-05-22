@@ -67,7 +67,7 @@ static void draw_map_bg(struct DRAW_MAP_INFO *mi)
     int tile_y_last = mi->tile_y_last;
 
     int tiles_stride = mi->map->w;
-    const uint8_t *tiles = &mi->map->tiles[mi->map->w*mi->map->h*3 + tile_y_first * tiles_stride];
+    const uint8_t *tiles = &mi->map->tiles[mi->map->w*mi->map->h + tile_y_first * tiles_stride];
 
     //printf("map bg at (%d,%d), tiles (%d,%d)->(%d,%d)\n", mi->screen_x, mi->screen_y, tile_x_first, tile_y_first, tile_x_last, tile_y_last);
 

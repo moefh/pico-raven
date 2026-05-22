@@ -45,7 +45,7 @@ static void load_room(const struct RAVEN_ROOM *room)
 static void game_init(void)
 {
     game.mod.index = RAVEN_MOD_ID_BWV_106;
-    game.mod.volume = 0x20;
+    game.mod.volume = 0x40;
 
     game.display.show_palette = 0;
     game.display.msg_load_frames_left = 0;
