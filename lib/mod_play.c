@@ -52,7 +52,7 @@ struct PLAY_CHANNEL {
 struct PLAY_STATE {
     const struct MOD_DATA *mod;
     struct PLAY_CHANNEL channels[MOD_MAX_CHANNELS];
-  
+
     uint32_t out_frequency;           // output frequency (samples per second)
     uint32_t sample_advance_factor;   // used to calculate sample playing frequency
 
@@ -60,10 +60,10 @@ struct PLAY_STATE {
     uint8_t jump_enabled;             // 1 to jump before starting the next row
     uint8_t jump_to_song_pos;         // jump song_pos destination (if jump_enabled)
     uint8_t jump_to_row;              // jump row destination (if jump enabled)
-  
+
     int32_t ticks_per_row;            // number of ticks per row (defined by mod speed)
     int32_t samples_per_tick;         // number of output samples per tick (defined by mod speed)
-  
+
     int32_t cur_song_pos;             // current song pos (index into mod->song_positions)
     int32_t cur_pattern;              // current pattern number (as given by mod->song_positions[cur_song_pos])
     int32_t cur_row;                  // current row in current pattern
@@ -172,64 +172,64 @@ static void process_channel_effect(int chan_num)
         case 0x0: // set filter on/off
             ALERT("                                                ch[%d]: SET FILTER %02x !!!!!!!!!!!!!!!!!!!!!\n", chan_num, ch->effect&0x0f);
             break;
-      
+
         case 0x1: // fineslide up
             ALERT("                                                ch[%d]: FINESLIDE UP %02x !!!!!!!!!!!!!!!!!!!\n", chan_num, ch->effect&0x0f);
             break;
-      
+
         case 0x2: // fineslide down
             ALERT("                                                ch[%d]: FINESLIDE DOWN %02x !!!!!!!!!!!!!!!!!\n", chan_num, ch->effect&0x0f);
             break;
-      
+
         case 0x3: // glissando on/off
             ALERT("                                                ch[%d]: GLISSANDO %02x !!!!!!!!!!!!!!!!!!!!!!\n", chan_num, ch->effect&0x0f);
             break;
-      
+
         case 0x4: // set vibrato waveform
             ALERT("                                                ch[%d]: SET VIBRATO WAVEFORM %02x !!!!!!!!!!!\n", chan_num, ch->effect&0x0f);
             break;
-      
+
         case 0x5: // set finetune value
             ALERT("                                                ch[%d]: SET FINETUNE VALUE %02x !!!!!!!!!!!!!\n", chan_num, ch->effect&0x0f);
             break;
-      
+
         case 0x6: // loop pattern
             ALERT("                                                ch[%d]: LOOP PATTERN %02x !!!!!!!!!!!!!!!!!!!\n", chan_num, ch->effect&0x0f);
             break;
-      
+
         case 0x7: // set tremolo waveform
             ALERT("                                                ch[%d]: SET TREMOLO WAVEFORM %02x !!!!!!!!!!!\n", chan_num, ch->effect&0x0f);
             break;
-      
+
         case 0x8: // custom callback (standard says unused, sometimes used as pan)
             if (state.event_callback) {
                 state.event_callback(chan_num, ch->effect & 0x0f, state.event_callback_data);
             }
             ALERT("                                                ch[%d]: CALLBACK %02x\n", chan_num, ch->effect&0x0f);
             break;
-      
+
         case 0x9: break; // retrigger sample (processed in tick)
-      
+
         case 0xA: // fine volume slide up
             ch->volume += (ch->effect & 0x0f) << 2;
             if (ch->volume > MOD_MAX_VOLUME) ch->volume = MOD_MAX_VOLUME;
             DEBUG("                                                ch[%d]: volume UP %d to %d\n", chan_num, ch->effect&0x0f, ch->volume);
             break;
-      
+
         case 0xB: // fine volume slide down
             ch->volume -= (ch->effect & 0x0f) << 2;
             if (ch->volume < 0) ch->volume = 0;
             DEBUG("                                                ch[%d]: volume DOWN %d to %d\n", chan_num, ch->effect&0x0f, ch->volume);
             break;
-      
+
         case 0xC: break; // cut sample (processed in tick)
-      
+
         case 0xD: break; // delay sample (processed in tick)
-      
+
         case 0xE: // delay pattern
             ALERT("                                                ch[%d]: DELAY PATTERN %02x !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n", chan_num, ch->effect&0x0f);
             break;
-      
+
         case 0xF: // invert loop
             ALERT("                                                ch[%d]: INVERT LOOP %02x !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n", chan_num, ch->effect&0x0f);
             break;
@@ -335,7 +335,7 @@ static void process_tick_channel_effect(int chan_num)
 
         case 0xA: break; // fine volume slide up
         case 0xB: break; // fine volume slide down
-            
+
         case 0xC: // cut sample
             {
                 int tick = ch->effect & 0x0f;
@@ -378,6 +378,10 @@ static int start_row(void)
         if (state.jump_to_song_pos > state.cur_song_pos || state.loop_enabled) {
             state.cur_song_pos = state.jump_to_song_pos;
             if (state.cur_song_pos >= state.mod->num_song_positions) {
+                if (! state.loop_enabled) {
+                    state.mod = NULL;
+                    return 1;
+                }
                 state.cur_song_pos = 0;
             }
             state.cur_row = state.jump_to_row;
@@ -385,7 +389,7 @@ static int start_row(void)
             state.jump_enabled = 0;
         }
     }
-  
+
     if (state.cur_row >= MOD_NUM_ROWS) {   // scroll to next song position
         state.cur_row = 0;
         if (++state.cur_song_pos >= state.mod->num_song_positions) {
@@ -402,7 +406,7 @@ static int start_row(void)
         state.cur_pattern = state.mod->song_positions[state.cur_song_pos];
         DEBUG("--- pattern ------------\n");
     }
-  
+
     DEBUG("patt %2d row %2d\n", state.cur_pattern, state.cur_row);
     const struct MOD_CELL *cell = &state.mod->pattern[state.mod->num_channels * (MOD_NUM_ROWS*state.cur_pattern + state.cur_row)];
     for (int c = 0; c < state.mod->num_channels; c++) {
@@ -417,7 +421,7 @@ static int start_row(void)
         }
         if (cell->note_index != 0xff) {
             ch->period = period_table[ch->sample->finetune][cell->note_index];
-            if ((cell->effect>>4) != 0xed) {  // for effect 0xed this is done on tick processing 
+            if ((cell->effect>>4) != 0xed) {  // for effect 0xed this is done on tick processing
                 ch->sample_advance = get_sample_advance_for_period(ch->period);
             }
         }
@@ -446,7 +450,7 @@ static int start_tick(void)
             process_tick_channel_effect(c);
         }
     }
-  
+
     return 0;
 }
 
@@ -481,7 +485,7 @@ static void play_samples(int16_t *out, unsigned int n_samples)
                 }
             }
         }
-        *out++ = clamp(out_sample);
+        *out++ = clamp(out_sample >> 2);
     }
 }
 
@@ -491,7 +495,7 @@ int mod_play_step(int16_t *out, unsigned int len)
         memset(out, 0, sizeof(int16_t) * len);
         return 1;
     }
-  
+
     unsigned int samples_left_to_play = len;
     while (samples_left_to_play > 0) {
         if (state.cur_tick_sample >= state.samples_per_tick) {
@@ -532,10 +536,10 @@ void mod_play_start(const struct MOD_DATA *mod_data, int loop)
 
     state.cur_tick = 0;
     state.cur_tick_sample = 0;
-  
+
     state.loop_enabled = loop;
     state.jump_enabled = 0;
-  
+
     reset_channels();
     start_row();
 }
