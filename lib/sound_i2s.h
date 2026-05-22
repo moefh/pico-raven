@@ -5,7 +5,7 @@
 
 #include <stdint.h>
 
-#define SOUND_I2S_BUFFER_NUM_SAMPLES  1024
+#define SOUND_I2S_BUFFER_NUM_SAMPLES  512
 
 struct sound_i2s_config {
     uint8_t  pio_num;
