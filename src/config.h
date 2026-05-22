@@ -10,7 +10,7 @@
 #define VGA_PIO_NUM 0
 
 #define SND_PIO_NUM          1
-#define SND_SAMPLE_FREQUENCY 22050
+#define SND_SAMPLE_FREQUENCY 44100
 
 #define JOY_I2C_NUM 1
 
