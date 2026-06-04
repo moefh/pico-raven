@@ -13,7 +13,12 @@ struct SHADOW_FRAME {
 static int n_shadow_frames;
 static struct SHADOW_FRAME shadow_frame[SPRITE_SHADOW_NUM_FRAMES];
 
-void add_sprite_shadow_frame(int frame, int x, int y)
+void sprite_shadow_clear(void)
+{
+    n_shadow_frames = 0;
+}
+
+void sprite_shadow_add_frame(int frame, int x, int y)
 {
     int new_shadow = n_shadow_frames-1;
     if (n_shadow_frames < SPRITE_SHADOW_NUM_FRAMES) {
@@ -97,7 +102,7 @@ static void draw_sprite_shadow_frame(int x, int y, int frame, uint8_t color, con
     }
 }
 
-void draw_sprite_shadow_bitmap(const uint8_t *sprite_shadow, const struct RAVEN_IMAGE *sprite, int screen_x, int screen_y, const uint8_t *colors)
+void sprite_shadow_draw_bitmap(const uint8_t *sprite_shadow, const struct RAVEN_IMAGE *sprite, int screen_x, int screen_y, const uint8_t *colors)
 {
     for (int i = 0; i < n_shadow_frames; i++) {
         draw_sprite_shadow_frame(shadow_frame[i].x - screen_x, shadow_frame[i].y - screen_y, shadow_frame[i].frame, colors[i],
@@ -105,7 +110,7 @@ void draw_sprite_shadow_bitmap(const uint8_t *sprite_shadow, const struct RAVEN_
     }
 }
 
-void draw_sprite_shadow(const struct RAVEN_IMAGE *sprite, int screen_x, int screen_y, const uint8_t *colors)
+void sprite_shadow_draw(const struct RAVEN_IMAGE *sprite, int screen_x, int screen_y, const uint8_t *colors)
 {
     for (int i = 0; i < n_shadow_frames; i++) {
         vga_image_draw_frame_mask(sprite, shadow_frame[i].frame, shadow_frame[i].x - screen_x, shadow_frame[i].y - screen_y, colors[i]);

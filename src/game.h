@@ -16,9 +16,13 @@ struct GAME_STATE_MOD {
 };
 
 struct GAME_STATE_PERF {
+    uint32_t frame_start_us;
+    uint32_t joy_req_us;
     uint32_t joy_read_us;
-    uint32_t joy_num_sleep;
     uint32_t update_us;
+    uint32_t room_fg_us;
+    uint32_t player_us;
+    uint32_t room_bg_us;
     uint32_t render_us;
     uint32_t vsync_us;
 };
@@ -29,7 +33,7 @@ struct GAME_STATE_DISPLAY {
     uint16_t msg_load_frames_left;
     uint8_t save_success;
     uint8_t load_success;
-    uint8_t show_palette;
+    uint8_t show_perf;
 };
 
 struct GAME_STATE {
@@ -49,5 +53,9 @@ struct GAME_STATE {
 };
 
 void game_main_loop(void);
+
+#define GAME_PERF_START(game)           (game)->perf.frame_start_us = time_us_32()
+#define GAME_PERF(game, name)           GAME_PERF_AT((game), name, time_us_32())
+#define GAME_PERF_AT(game, name, time)  (game)->perf.name = (time) - (game)->perf.frame_start_us
 
 #endif /* GAME_H_FILE */

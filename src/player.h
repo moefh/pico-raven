@@ -22,15 +22,13 @@ struct RAVEN_PLAYER {
     int32_t x;
     int32_t y;
     uint8_t direction;
+    uint8_t shadow_enabled;
     uint8_t anim_loop;
     uint16_t anim_frame;  // 10.6 fixpoint
 
     int16_t sprite_x;
     int16_t sprite_y;
     uint8_t sprite_frame;
-#if SPRITE_SHADOW_ENABLE_BITMAP
-    uint8_t *sprite_shadow;
-#endif
 };
 
 void player_init(struct RAVEN_PLAYER *ch);

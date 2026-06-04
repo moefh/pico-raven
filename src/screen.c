@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "pico/stdlib.h"
 
 #include "screen.h"
@@ -25,6 +26,22 @@ static const uint8_t sprite_shadow_colors[SPRITE_SHADOW_NUM_FRAMES] = {
     //0|(0<<6), 1|(0<<6), 2|(1<<6), 3|(1<<6), 4|(2<<6), 5|(2<<6), 6|(3<<6), 7|(3<<6), // magenta
 };
 
+#define PERF_IMAGE_W 128
+#define PERF_IMAGE_H 70  // 16666 >> 8 = 65 plus a few extra pixels
+#define PERF_COLOR_JOY_REQ  0b00000111
+#define PERF_COLOR_JOY_READ 0b11000000
+#define PERF_COLOR_UPDATE   0b11111111
+#define PERF_COLOR_ROOM_BG  0b11111000
+#define PERF_COLOR_PLAYER   0b11000000
+#define PERF_COLOR_ROOM_FG  0b00000111
+#define PERF_COLOR_RENDER   0b11111111
+#define PERF_COLOR_VSYNC    0b00111000
+
+static struct PERF_HISTORY {
+    uint8_t image[PERF_IMAGE_W*PERF_IMAGE_H];
+    uint32_t pos;
+} perf_history;
+
 int screen_init(void)
 {
     if (vga_init(&vga_mode_320x240, VGA_PIO_NUM, VGA_PIN_BASE, true) < 0) {
@@ -42,7 +59,7 @@ int screen_init(void)
     }
     mem_init(&mem, scratch, scratch_size);
 
-    font_set_font(&raven_fonts[RAVEN_FONT_ID_FONT_6X8]);
+    font_set_font(&raven_fonts[RAVEN_FONT_ID_6X8]);
     font_set_color(0xff);
 
     return 0;
@@ -65,24 +82,40 @@ static int fps_count(void)
     return last_fps;
 }
 
-static void draw_palette(void)
+static uint32_t update_perf_history_counter(uint32_t x, uint32_t start, uint32_t counter, uint8_t color)
 {
-#define BLOCK 10
-    int x_min = vga_screen.width - 10 - 16*BLOCK;
-    int y_min = 10;
-
-    for (int y = 0; y < 16; y++) {
-        for (int x = 0; x < 16; x++) {
-            uint8_t color = (y << 4) | x;
-            for (int i = 0; i < BLOCK; i++) {
-                uint8_t *d = vga_screen.lines8[y_min+BLOCK*y+i] + x_min+BLOCK*x;
-                for (int j = 0; j < BLOCK; j++) {
-                    *d++ = color;
-                }
-            }
-        }
+    uint32_t end = counter >> 8;
+    for (uint32_t y = start; y <= end; y++) {
+        perf_history.image[x + (PERF_IMAGE_H-y-1)*PERF_IMAGE_W] = color;
     }
-#undef BLOCK
+    return end;
+}
+
+static void update_perf_history(struct GAME_STATE_PERF *perf)
+{
+    uint32_t x = perf_history.pos;
+    uint32_t y = 0;
+    y = update_perf_history_counter(x, y, perf->joy_req_us,  0b00000111);
+    y = update_perf_history_counter(x, y, perf->joy_read_us, 0b11000000);
+    y = update_perf_history_counter(x, y, perf->update_us,   0b11111111);
+    y = update_perf_history_counter(x, y, perf->room_bg_us,  0b11111000);
+    y = update_perf_history_counter(x, y, perf->player_us,   0b11000000);
+    y = update_perf_history_counter(x, y, perf->room_fg_us,  0b00000111);
+    y = update_perf_history_counter(x, y, perf->render_us,   0b11111111);
+    y = update_perf_history_counter(x, y, perf->vsync_us,    0b00111000);
+    for (; y < PERF_IMAGE_H; y++) {
+        perf_history.image[x + (PERF_IMAGE_H-y-1)*PERF_IMAGE_W] = 0;
+    }
+    perf_history.pos = (perf_history.pos + 1) % PERF_IMAGE_W;
+}
+
+static void draw_perf_history(uint32_t x, uint32_t y)
+{
+    uint32_t cur_x = perf_history.pos;
+    for (uint32_t i = 0; i < PERF_IMAGE_H; i++) {
+        memcpy(vga_screen.lines8[y+i] + x, &perf_history.image[i*PERF_IMAGE_W + cur_x], PERF_IMAGE_W - cur_x);
+        memcpy(vga_screen.lines8[y+i] + x + PERF_IMAGE_W - cur_x, &perf_history.image[i*PERF_IMAGE_W], cur_x);
+    }
 }
 
 static void draw_joy_buttons(int y)
@@ -109,11 +142,9 @@ static void draw_joy_buttons(int y)
 
 static void draw_player(struct GAME_STATE *game)
 {
-#if SPRITE_SHADOW_ENABLE_BITMAP
-    draw_sprite_shadow_bitmap(game->player.sprite_shadow, game->player.sprite, game->screen_x, game->screen_y, sprite_shadow_colors);
-#else
-    draw_sprite_shadow(game->player.sprite, game->screen_x, game->screen_y, sprite_shadow_colors);
-#endif
+    if (game->player.shadow_enabled) {
+        sprite_shadow_draw(game->player.sprite, game->screen_x, game->screen_y, sprite_shadow_colors);
+    }
 
     vga_image_draw_frame(game->player.sprite, game->player.sprite_frame,
                          game->player.sprite_x - game->screen_x, game->player.sprite_y - game->screen_y, 1);
@@ -121,15 +152,20 @@ static void draw_player(struct GAME_STATE *game)
 
 static void draw_room(struct GAME_STATE *game)
 {
-    struct DRAW_ROOM_INFO *info = draw_room_init(&mem, game);
+    struct DRAW_ROOM_INFO *info = draw_room_init_frame(&mem, game);
+
     draw_room_bg(info);
+    GAME_PERF(game, room_bg_us);
+
     draw_player(game);
+    GAME_PERF(game, player_us);
+
     draw_room_fg(info);
+    GAME_PERF(game, room_fg_us);
 }
 
 void screen_render(struct GAME_STATE *game)
 {
-    uint32_t render_start = time_us_32();
     int fps = fps_count();
 
     mem_clear(&mem);
@@ -141,32 +177,39 @@ void screen_render(struct GAME_STATE *game)
     font_move(10, 10);
     font_printf("%d fps", fps);
 
-    if (game->display.show_palette) {
-        draw_palette();
+    update_perf_history(&game->perf);
+    if (game->display.show_perf) {
+        draw_perf_history(180, 10);
+        if (game->display.show_perf == 2) {
+            for (int y = 85; y < 175; y++) memset(vga_screen.lines8[y] + 210, 0, PERF_IMAGE_W - 30);
+            font_set_color(PERF_COLOR_VSYNC);    font_move(216,  90); font_printf("vsync    %5lu", game->perf.vsync_us);
+            font_set_color(PERF_COLOR_RENDER);   font_move(216, 100); font_printf("render   %5lu", game->perf.render_us);
+            font_set_color(PERF_COLOR_ROOM_FG);  font_move(216, 110); font_printf("room_fg  %5lu", game->perf.room_fg_us);
+            font_set_color(PERF_COLOR_PLAYER);   font_move(216, 120); font_printf("player   %5lu", game->perf.player_us);
+            font_set_color(PERF_COLOR_ROOM_BG);  font_move(216, 130); font_printf("room_bg  %5lu", game->perf.room_bg_us);
+            font_set_color(PERF_COLOR_UPDATE);   font_move(216, 140); font_printf("logic    %5lu", game->perf.update_us);
+            font_set_color(PERF_COLOR_JOY_READ); font_move(216, 150); font_printf("joy read %5lu", game->perf.joy_read_us);
+            font_set_color(PERF_COLOR_JOY_REQ);  font_move(216, 160); font_printf("joy req  %5lu", game->perf.joy_req_us);
+            font_set_color(0xff);
+        }
     }
 
-    font_move(10, 20); font_printf("joy up us: %5lu", game->perf.joy_read_us);
-    font_move(10, 30); font_printf("update us: %5lu", game->perf.update_us);
-    font_move(10, 40); font_printf("render us: %5lu", game->perf.render_us);
-    font_move(10, 50); font_printf("vsync  us: %5lu", game->perf.vsync_us);
-    draw_joy_buttons(60);
+    draw_joy_buttons(80);
 
-    int info_y = 60 + 40;
-    font_move(10, info_y); font_printf("mod number: %d", game->mod.index);
-    font_move(10, info_y+10); font_printf("mod volume: %03x", game->mod.volume);
+    font_move(10, 160); font_printf("mod number: %d", game->mod.index);
+    font_move(10, 170); font_printf("mod volume: %03x", game->mod.volume);
     if (game->display.msg_mod_event_frames_left) {
-        font_move(10, info_y+20); font_printf("mod event: %d, %d", game->mod.event_chan, game->mod.event_data);
+        font_move(10, 180); font_printf("mod event: %d, %d", game->mod.event_chan, game->mod.event_data);
     }
     if (game->display.msg_save_frames_left) {
-        font_move(10, info_y+30); font_printf("%s", game->display.save_success ? "game saved" : "error saving game");
+        font_move(10, 190); font_printf("%s", game->display.save_success ? "game saved" : "error saving game");
     }
     if (game->display.msg_load_frames_left) {
-        font_move(10, info_y+40); font_printf("%s", game->display.load_success ? "game loaded" : "error loading game");
+        font_move(10, 200); font_printf("%s", game->display.load_success ? "game loaded" : "error loading game");
     }
     font_move(10, 226); font_printf("version %llx", get_compilation_timestamp());
 
-    uint32_t vsync_start = time_us_32();
-    game->perf.render_us = vsync_start - render_start;
+    GAME_PERF(game, render_us);
     vga_swap_buffers(true);
-    game->perf.vsync_us = time_us_32() - vsync_start;
+    GAME_PERF(game, vsync_us);
 }

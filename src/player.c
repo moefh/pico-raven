@@ -9,22 +9,6 @@
 #define DX_FRICTION  ((int32_t) 0x0c0)
 #define DX_MAX       ((int32_t) 0x700)
 
-#if SPRITE_SHADOW_ENABLE_BITMAP
-static uint8_t sprite_shadow_data[(RAVEN_SPRITE_WIDTH_BUNNY+7)/8 * RAVEN_SPRITE_HEIGHT_BUNNY * RAVEN_SPRITE_FRAMES_BUNNY];
-
-static uint8_t *init_player_shadow(const struct RAVEN_IMAGE *sprite)
-{
-    size_t data_size = ((sprite->width+7)/8) * sprite->height * sprite->num_frames;
-    if (data_size > sizeof(sprite_shadow_data)) {
-        printf("WARNING: not enough sprite shadow data for player (%zu > %zu)\n", data_size, sizeof(sprite_shadow_data));
-    }
-
-    gen_sprite_shadow_image(sprite_shadow_data, sprite);
-
-    return sprite_shadow_data;
-}
-#endif /* SPRITE_SHADOW_ENABLE_BITMAP */
-
 void player_init(struct RAVEN_PLAYER *pl)
 {
     const struct RAVEN_SPRITE_ANIMATION *anim = &raven_sprite_animations[RAVEN_SPRITE_ANIMATION_ID_BUNNY];
@@ -34,10 +18,7 @@ void player_init(struct RAVEN_PLAYER *pl)
     pl->direction = RAVEN_DIR_RIGHT;
     pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_STAND;
     pl->anim_frame = 0;
-
-#if SPRITE_SHADOW_ENABLE_BITMAP
-    pl->sprite_shadow = init_player_shadow(pl->sprite);
-#endif
+    pl->shadow_enabled = 0;
 }
 
 void player_update_sprite_info(struct RAVEN_PLAYER *pl)
@@ -51,7 +32,9 @@ void player_update_sprite_info(struct RAVEN_PLAYER *pl)
         pl->sprite_x = pl->x - pl->anim->collision.x;
         pl->sprite_y = pl->y - pl->anim->collision.y;
     }
-    add_sprite_shadow_frame(pl->sprite_frame, pl->sprite_x, pl->sprite_y);
+    if (pl->shadow_enabled) {
+        sprite_shadow_add_frame(pl->sprite_frame, pl->sprite_x, pl->sprite_y);
+    }
 }
 
 void player_advance_state_with_control(struct RAVEN_PLAYER *pl, struct RAVEN_PLAYER_CONTROL *plc)

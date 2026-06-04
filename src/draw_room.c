@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include "draw_room.h"
 
 #include "game.h"
@@ -6,7 +8,12 @@
 
 #define TILE_SIZE 16
 
-struct DRAW_ROOM_INFO *draw_room_init(struct MEM_ARENA *mem, struct GAME_STATE *game)
+void draw_room_init_room(struct GAME_STATE *game)
+{
+    (void)game;
+}
+
+struct DRAW_ROOM_INFO *draw_room_init_frame(struct MEM_ARENA *mem, struct GAME_STATE *game)
 {
     struct DRAW_ROOM_INFO *draw_room_info = mem_add(mem, struct DRAW_ROOM_INFO);
     draw_room_info->n_maps = 0;
@@ -112,7 +119,6 @@ static void draw_map_fg(struct DRAW_MAP_INFO *mi)
     }
 }
 
-#if 1
 void draw_room_bg(struct DRAW_ROOM_INFO *info)
 {
     for (int i = 0; i < info->n_maps; i++) {
@@ -126,14 +132,3 @@ void draw_room_fg(struct DRAW_ROOM_INFO *info)
         draw_map_fg(info->maps[i]);
     }
 }
-#else
-void draw_room_bg(struct DRAW_ROOM_INFO *info)
-{
-    draw_map_bg(info->maps[0]);
-}
-
-void draw_room_fg(struct DRAW_ROOM_INFO *info)
-{
-    draw_map_fg(info->maps[0]);
-}
-#endif

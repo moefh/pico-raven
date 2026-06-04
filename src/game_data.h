@@ -12,6 +12,7 @@
 #define RAVEN_SKIP_STRUCTS_IMAGE
 #define RAVEN_SKIP_STRUCTS_FONT
 #define RAVEN_SKIP_STRUCTS_PROP_FONT
+#define RAVEN_ADD_ROOM_SCRIPTS 1
 
 #define RAVEN_MOD_DATA MOD_DATA
 #define RAVEN_MOD_CELL MOD_CELL
@@ -19,6 +20,7 @@
 #define RAVEN_IMAGE VGA_IMAGE
 #define RAVEN_FONT VGA_FONT
 #define RAVEN_PROP_FONT VGA_PROP_FONT
+#define RAVEN_STATE GAME_STATE
 
 #include "data/raven.h"
 #include "data/raven_data.h"

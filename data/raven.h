@@ -67,20 +67,33 @@ struct RAVEN_IMAGE {
 
 #endif /* RAVEN_SKIP_STRUCTS_IMAGE */
 
+#ifndef RAVEN_SKIP_STRUCTS_PAL_SPRITE
+
+struct RAVEN_PAL_SPRITE {
+    int16_t width;
+    int16_t height;
+    int16_t num_frames;
+    uint16_t bpp;
+    uint8_t palette[16];
+    const uint8_t *data;
+};
+
+#endif /* RAVEN_SKIP_STRUCTS_PAL_SPRITE */
+
 #ifndef RAVEN_SKIP_STRUCTS_MAP
 
 struct RAVEN_MAP {
     int16_t w;
     int16_t h;
-    int16_t bg_w;
-    int16_t bg_h;
+    int16_t para_w;
+    int16_t para_h;
     const struct RAVEN_IMAGE *tileset;
     const uint8_t *tiles;
 };
 
-#endif /* #ifndef RAVEN_SKIP_STRUCTS_MAP */
+#endif /* RAVEN_SKIP_STRUCTS_MAP */
 
-#ifndef RAVEN_SKIP_STRUCT_SPRITE_ANIMATION
+#ifndef RAVEN_SKIP_STRUCTS_SPRITE_ANIMATION
 
 struct RAVEN_SPRITE_ANIMATION_LOOP {
     uint16_t offset;   // offset into animation frame_indices
@@ -103,7 +116,7 @@ struct RAVEN_SPRITE_ANIMATION {
     struct RAVEN_SPRITE_ANIMATION_LOOP loops[20];
 };
 
-#endif /* #ifndef RAVEN_SKIP_STRUCTS_SPRITE_ANIMATION */
+#endif /* RAVEN_SKIP_STRUCTS_SPRITE_ANIMATION */
 
 #ifndef RAVEN_SKIP_STRUCTS_FONT
 
@@ -113,7 +126,7 @@ struct RAVEN_FONT {
     const uint8_t *data;
 };
 
-#endif /* #ifndef RAVEN_SKIP_STRUCTS_FONT */
+#endif /* RAVEN_SKIP_STRUCTS_FONT */
 
 #ifndef RAVEN_SKIP_STRUCTS_PROP_FONT
 
@@ -124,7 +137,7 @@ struct RAVEN_PROP_FONT {
     uint16_t char_offset[96];
 };
 
-#endif /* #ifndef RAVEN_SKIP_STRUCTS_PROP_FONT */
+#endif /* RAVEN_SKIP_STRUCTS_PROP_FONT */
 
 #ifndef RAVEN_SKIP_STRUCTS_ROOM
 
@@ -164,7 +177,18 @@ struct RAVEN_ROOM {
     const struct RAVEN_ROOM_TRIGGER_INFO *triggers;
 };
 
-#endif /* #ifndef RAVEN_SKIP_STRUCTS_ROOM */
+#endif /* RAVEN_SKIP_STRUCTS_ROOM */
+
+#ifndef RAVEN_SKIP_STRUCTS_ROOM_SCRIPT
+
+struct RAVEN_STATE;
+typedef void (*raven_room_init_function)(uint32_t room_id, struct RAVEN_STATE *);
+
+struct RAVEN_ROOM_SCRIPT {
+    raven_room_init_function init;
+};
+
+#endif /* RAVEN_SKIP_STRUCTS_ROOM_SCRIPT */
 
 extern const struct RAVEN_FONT raven_fonts[];
 extern const struct RAVEN_PROP_FONT raven_prop_fonts[];
@@ -175,5 +199,6 @@ extern const struct RAVEN_IMAGE raven_sprites[];
 extern const struct RAVEN_MAP raven_maps[];
 extern const struct RAVEN_SPRITE_ANIMATION raven_sprite_animations[];
 extern const struct RAVEN_ROOM raven_rooms[];
+extern const struct RAVEN_ROOM_SCRIPT *raven_room_script_table[];
 
 #endif /* RAVEN_DATA_H_FILE */

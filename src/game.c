@@ -10,6 +10,8 @@
 #include "core_msg.h"
 #include "game_data.h"
 #include "screen.h"
+#include "sprite_shadow.h"
+#include "draw_room.h"
 #include "savegame.h"
 #include "joy.h"
 
@@ -17,8 +19,9 @@
 
 static struct GAME_STATE game;
 
-static void load_room(const struct RAVEN_ROOM *room)
+static void load_room(uint32_t room_id)
 {
+    const struct RAVEN_ROOM *room = &raven_rooms[room_id];
     game.room = room;
 
     // calc room width
@@ -31,11 +34,18 @@ static void load_room(const struct RAVEN_ROOM *room)
         if (game.room_h < h) game.room_h = h;
     }
 
+    // setup room
+    draw_room_init_room(&game);
+    const struct RAVEN_ROOM_SCRIPT *script_table = raven_room_script_table[room_id];
+    if (script_table) {
+        script_table->init(room_id, &game);
+    }
+
     // setup player
     player_init(&game.player);
     player_control_init(&game.player_control);
 
-    const struct RAVEN_ROOM_TRIGGER_INFO *spawn = &game.room->triggers[RAVEN_ROOM_START_TRG_SPAWN_POINT];
+    const struct RAVEN_ROOM_TRIGGER_INFO *spawn = &game.room->triggers[RAVEN_ROOM_INTRO_TRG_SPAWN_POINT];
     game.player.x = spawn->x;
     game.player.y = spawn->y + spawn->h - game.player.anim->collision.h;
     game.screen_x = 0;
@@ -47,12 +57,12 @@ static void game_init(void)
     game.mod.index = RAVEN_MOD_ID_BWV_106;
     game.mod.volume = 0x40;
 
-    game.display.show_palette = 0;
+    game.display.show_perf = 1;
     game.display.msg_load_frames_left = 0;
     game.display.msg_save_frames_left = 0;
     game.display.msg_mod_event_frames_left = 0;
 
-    load_room(&raven_rooms[RAVEN_ROOM_ID_START]);
+    load_room(RAVEN_ROOM_ID_INTRO);
 }
 
 static void process_mod_event(uint8_t chan, uint8_t event)
@@ -106,11 +116,17 @@ static void process_joy_input(void)
         game.mod.index = (game.mod.index+1) % RAVEN_MOD_COUNT;
         msg_mod_play(&raven_mods[game.mod.index], game.mod.volume>>4, true);
     }
+    if (JOY_BTN_PRESSED(&joy, JOY_BTN_B)) {
+        game.player.shadow_enabled = 1 - game.player.shadow_enabled;
+        if (game.player.shadow_enabled) {
+            sprite_shadow_clear();
+        }
+    }
     if (JOY_BTN_PRESSED(&joy, JOY_BTN_C)) {
         msg_sfx_play_once(0, &raven_sfxs[0], 0x10, 0x3<<10);
     }
     if (JOY_BTN_PRESSED(&joy, JOY_BTN_D)) {
-        game.display.show_palette = !game.display.show_palette;
+        game.display.show_perf = (game.display.show_perf + 1) % 3;
     }
 
     if (JOY_BTN_PRESSED(&joy, JOY_BTN_START)) {
@@ -181,26 +197,26 @@ void game_main_loop(void)
 
     msg_mod_play(&raven_mods[game.mod.index], game.mod.volume>>4, true);
     while (true) {
-        uint32_t update_start = time_us_32();
+        GAME_PERF_START(&game);
 
         // request joy update
         joy.last = joy.cur;
         joy_wii_i2c_request_state(&joy);
         uint32_t joy_req_us = time_us_32();
+        GAME_PERF_AT(&game, joy_req_us, joy_req_us);
 
         // process core messages while waiting for joy update
         process_core_messages();
 
         // ensure 200us have elapsed since joy update request
-        uint32_t joy_read_us = time_us_32();
         while (time_us_32() - joy_req_us < 200) sleep_us(10);
         joy_wii_i2c_read_state(&joy);
-        game.perf.joy_read_us = time_us_32() - joy_read_us;
+        GAME_PERF(&game, joy_read_us);
 
         process_joy_input();
         update_game_state();
 
-        game.perf.update_us = time_us_32() - update_start;
+        GAME_PERF(&game, update_us);
         screen_render(&game);
     }
 }
