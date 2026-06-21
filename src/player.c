@@ -1,28 +1,32 @@
 #include <stdio.h>
 
 #include "player.h"
+#include "collision.h"
 
 #include "lib/mem.h"
 
 #define ANIM_ADV_STEPS (1<<4)
-#define DX_ACCEL     ((int32_t) 0x100)
-#define DX_FRICTION  ((int32_t) 0x0c0)
-#define DX_MAX       ((int32_t) 0x700)
 
-void player_init(struct RAVEN_PLAYER *pl)
+#define DX_ACCEL      ((int32_t) 0x100)
+#define DX_FRICTION   ((int32_t) 0x0c0)
+#define DX_MAX        ((int32_t) 0x700)
+
+#define DY_GRAVITY    ((int32_t) 0x0a0)
+#define DY_MAX        ((int32_t) 0x700)
+#define DY_JUMP_START ((int32_t)-0xa00)
+#define DY_JUMP_HOLD  ((int32_t)-0x050)
+
+static void update_sprite_info(struct RAVEN_PLAYER *pl)
 {
-    const struct RAVEN_SPRITE_ANIMATION *anim = &raven_sprite_animations[RAVEN_SPRITE_ANIMATION_ID_BUNNY];
-
-    pl->sprite = anim->sprite;
-    pl->anim = anim;
-    pl->direction = RAVEN_DIR_RIGHT;
-    pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_STAND;
-    pl->anim_frame = 0;
-    pl->shadow_enabled = 0;
-}
-
-void player_update_sprite_info(struct RAVEN_PLAYER *pl)
-{
+    switch (pl->state) {
+    case PLAYER_STATE_STAND: pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_STAND; break;
+    case PLAYER_STATE_WALK:  pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_RUN; break;
+    case PLAYER_STATE_JUMP:  pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_JUMP; break;
+    case PLAYER_STATE_FALL:  pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_FALL; break;
+    }
+    if ((pl->anim_frame>>6) >= pl->anim->loops[pl->anim_loop].length) {
+        pl->anim_frame = 0;
+    }
     pl->sprite_frame = pl->anim->frame_indices[pl->anim->loops[pl->anim_loop].offset + (pl->anim_frame>>6)];
     if (pl->direction == RAVEN_DIR_LEFT) {
         pl->sprite_frame += pl->sprite->num_frames/2;
@@ -37,15 +41,54 @@ void player_update_sprite_info(struct RAVEN_PLAYER *pl)
     }
 }
 
-void player_advance_state_with_control(struct RAVEN_PLAYER *pl, struct RAVEN_PLAYER_CONTROL *plc)
+void player_init(struct RAVEN_PLAYER *pl)
 {
-    pl->anim_frame += ANIM_ADV_STEPS;
-    if ((pl->anim_frame>>6) >= pl->anim->loops[pl->anim_loop].length) {
-        pl->anim_frame = 0;
+    const struct RAVEN_SPRITE_ANIMATION *anim = &raven_sprite_animations[RAVEN_SPRITE_ANIMATION_ID_BUNNY];
+
+    pl->sprite = anim->sprite;
+    pl->anim = anim;
+    pl->x = 0;
+    pl->y = 0;
+    pl->state = PLAYER_STATE_STAND;
+    pl->direction = RAVEN_DIR_RIGHT;
+    pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_STAND;
+    pl->anim_frame = 0;
+    pl->shadow_enabled = 0;
+
+    update_sprite_info(pl);
+}
+
+void player_update(struct RAVEN_PLAYER *pl, struct RAVEN_PLAYER_CONTROL *plc)
+{
+    //printf("update player: at (%ld,%ld), delta=0x(%lx,%lx)=(%ld,%ld)\n", pl->x, pl->y, plc->dx, plc->dy, plc->dx>>8, plc->dy>>8);
+    int dx = plc->dx >> 8;
+    int dy = plc->dy >> 8;
+    struct COLLISION_RECT rect = {
+        .x = pl->x,
+        .y = pl->y,
+        .w = pl->anim->collision.w,
+        .h = pl->anim->collision.h,
+    };
+    if (collision_move(&rect, dx, dy) & COLLISION_FLAGS_DOWN) {
+        plc->dy = 0;
+        if (JOY_BTN_HELD(&joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
+            pl->state = PLAYER_STATE_WALK;
+        } else {
+            pl->state = PLAYER_STATE_STAND;
+        }
+    } else if (pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK) {
+        int y = rect.y;
+        if (collision_move(&rect, 0, 1) == 0) {
+            pl->state = PLAYER_STATE_FALL;
+        }
+        rect.y = y;
     }
 
-    pl->x += plc->dx >> 8;
-    pl->y += plc->dy >> 8;
+    pl->x = rect.x;
+    pl->y = rect.y;
+
+    pl->anim_frame += ANIM_ADV_STEPS;
+    update_sprite_info(pl);
 }
 
 void player_control_init(struct RAVEN_PLAYER_CONTROL *plc)
@@ -56,26 +99,34 @@ void player_control_init(struct RAVEN_PLAYER_CONTROL *plc)
 
 void player_control_update(struct RAVEN_PLAYER_CONTROL *plc, struct RAVEN_PLAYER *pl)
 {
-    if (JOY_BTN_PRESSED(&joy, JOY_BTN_RIGHT) || JOY_BTN_PRESSED(&joy, JOY_BTN_LEFT)) {
-        pl->direction = JOY_BTN_HELD(&joy, JOY_BTN_RIGHT) ? RAVEN_DIR_RIGHT : RAVEN_DIR_LEFT;
-        pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_RUN;
-        pl->anim_frame = 0;
-    }
-    if ((plc->dx != 0 || pl->anim_loop != RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_STAND) && ! JOY_BTN_HELD(&joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
-        if (pl->anim_loop != RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_STAND) {
+    // walk
+    if (pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK) {
+        if (JOY_BTN_PRESSED(&joy, JOY_BTN_RIGHT) || JOY_BTN_PRESSED(&joy, JOY_BTN_LEFT)) {
+            pl->state = PLAYER_STATE_WALK;
+            pl->anim_frame = 0;
+        } else if (! JOY_BTN_HELD(&joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
+            pl->state = PLAYER_STATE_STAND;
             pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_STAND;
             pl->anim_frame = 0;
         }
-        if (plc->dx > 0) {
-            plc->dx -= DX_FRICTION;
-            if (plc->dx < 0) plc->dx = 0;
-        }
-        if (plc->dx < 0) {
-            plc->dx += DX_FRICTION;
-            if (plc->dx > 0) plc->dx = 0;
+        if (plc->dx != 0) {
+            if (plc->dx > 0) {
+                plc->dx -= DX_FRICTION;
+                if (plc->dx < 0) plc->dx = 0;
+            }
+            if (plc->dx < 0) {
+                plc->dx += DX_FRICTION;
+                if (plc->dx > 0) plc->dx = 0;
+            }
         }
     }
 
+    // change direction
+    if (JOY_BTN_PRESSED(&joy, JOY_BTN_RIGHT) || JOY_BTN_PRESSED(&joy, JOY_BTN_LEFT)) {
+        pl->direction = JOY_BTN_HELD(&joy, JOY_BTN_RIGHT) ? RAVEN_DIR_RIGHT : RAVEN_DIR_LEFT;
+    }
+
+    // limit x speed
     if (JOY_BTN_HELD(&joy, JOY_BTN_RIGHT)) {
         plc->dx += DX_ACCEL;
         if (plc->dx >= DX_MAX) plc->dx = DX_MAX;
@@ -85,24 +136,24 @@ void player_control_update(struct RAVEN_PLAYER_CONTROL *plc, struct RAVEN_PLAYER
         if (plc->dx <= -DX_MAX) plc->dx = -DX_MAX;
     }
 
-#if 1    // TODO: remove this!
-    if (JOY_BTN_HELD(&joy, JOY_BTN_DOWN)) {
-        plc->dy += DX_ACCEL;
-        if (plc->dy >= DX_MAX) plc->dy = DX_MAX;
+    // jump
+    if ((pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK) && JOY_BTN_PRESSED(&joy, JOY_BTN_A)) {
+        plc->dy = DY_JUMP_START;
+        pl->state = PLAYER_STATE_JUMP;
     }
-    if (JOY_BTN_HELD(&joy, JOY_BTN_UP)) {
-        plc->dy -= DX_ACCEL;
-        if (plc->dy < -DX_MAX) plc->dy = -DX_MAX;
-    }
-    if (plc->dy != 0) {
-        if (plc->dy > 0) {
-            plc->dy -= DX_FRICTION;
-            if (plc->dy < 0) plc->dx = 0;
-        }
-        if (plc->dy < 0) {
-            plc->dy += DX_FRICTION;
-            if (plc->dy > 0) plc->dy = 0;
+
+    // hold jump / start fall
+    if (pl->state == PLAYER_STATE_JUMP) {
+        if (JOY_BTN_HELD(&joy, JOY_BTN_A) && plc->dy < 0) {
+            plc->dy += DY_JUMP_HOLD;
+        } else {
+            pl->state = PLAYER_STATE_FALL;
         }
     }
-#endif
+
+    // apply gravity
+    if (pl->state != PLAYER_STATE_STAND && pl->state != PLAYER_STATE_WALK) {
+        plc->dy += DY_GRAVITY;
+    }
+    if (plc->dy >= DY_MAX) plc->dy = DY_MAX;
 }

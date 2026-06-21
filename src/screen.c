@@ -85,6 +85,8 @@ static int fps_count(void)
 static uint32_t update_perf_history_counter(uint32_t x, uint32_t start, uint32_t counter, uint8_t color)
 {
     uint32_t end = counter >> 8;
+    if (end > PERF_IMAGE_H-1) end = PERF_IMAGE_H-1;
+
     for (uint32_t y = start; y <= end; y++) {
         perf_history.image[x + (PERF_IMAGE_H-y-1)*PERF_IMAGE_W] = color;
     }
@@ -169,13 +171,20 @@ void screen_render(struct GAME_STATE *game)
     int fps = fps_count();
 
     mem_clear(&mem);
-    //vga_clear_screen((game->mod.index & 1) ? 0x08 : 0x40);
+    //vga_clear_screen(0);
 
     draw_room(game);
 
     font_align(FONT_ALIGN_LEFT);
     font_move(10, 10);
     font_printf("%d fps", fps);
+
+    int pw = game->player.anim->collision.w;
+    int ph = game->player.anim->collision.w;
+    font_move(10, 20); font_printf("pos  %4ld,%-4ld | %4ld,%-4ld\n", game->player.x, game->player.y, game->player.x+pw-1, game->player.y);
+    font_move(10, 30); font_printf("pos  %4ld,%-4ld | %4ld,%-4ld\n", game->player.x, game->player.y+ph-1, game->player.x+pw-1, game->player.y+ph-1);
+    font_move(10, 40); font_printf("vel %5ld,%-5ld| %4ld,%-4ld\n", game->player_control.dx, game->player_control.dy, game->player_control.dx>>8, game->player_control.dy>>8);
+    font_move(10, 50); font_printf("state %d\n", game->player.state);
 
     update_perf_history(&game->perf);
     if (game->display.show_perf) {

@@ -141,54 +141,72 @@ struct RAVEN_PROP_FONT {
 
 #ifndef RAVEN_SKIP_STRUCTS_ROOM
 
+enum RAVEN_ROOM_TRIGGER_TYPE {
+   RAVEN_ROOM_TRIGGER_TYPE_UNKNOWN,
+   RAVEN_ROOM_TRIGGER_TYPE_DOOR,
+   RAVEN_ROOM_TRIGGER_TYPE_PLAYER_SPAWN,
+   RAVEN_ROOM_TRIGGER_TYPE_ENEMY_SPAWN,
+   RAVEN_ROOM_TRIGGER_TYPE_TRAP,
+};
+
 struct RAVEN_ROOM_MAP_INFO {
     uint16_t x;
     uint16_t y;
     const struct RAVEN_MAP *map;
 };
 
-struct RAVEN_ROOM_ENTITY_INFO {
-    int16_t x;
-    int16_t y;
-    const struct RAVEN_SPRITE_ANIMATION *anim;
-    uint16_t data0;
-    uint16_t data1;
-    uint16_t data2;
-    uint16_t data3;
-};
-
 struct RAVEN_ROOM_TRIGGER_INFO {
+    enum RAVEN_ROOM_TRIGGER_TYPE type;
     int16_t x;
     int16_t y;
-    uint16_t w;
-    uint16_t h;
-    uint16_t data0;
-    uint16_t data1;
-    uint16_t data2;
-    uint16_t data3;
+    union {
+        struct {
+            uint32_t data0;
+            uint32_t data1;
+            uint32_t data2;
+            uint32_t data3;
+        } any;
+        struct {
+            uint8_t direction;
+        } player_spawn;
+        struct {
+             const struct RAVEN_ROOM *room;
+             uint16_t room_id;
+             uint16_t door;
+             uint16_t width;
+             uint16_t height;
+        } door;
+        struct {
+             const struct RAVEN_SPRITE_ANIMATION *animation;
+             uint16_t type;
+        } enemy_spawn;
+        struct {
+             uint16_t width;
+             uint16_t height;
+             uint16_t type;
+        } trap;
+    };
 };
 
 struct RAVEN_ROOM {
-    uint8_t num_maps;
-    uint8_t num_entities;
-    uint8_t num_triggers;
+    uint16_t num_maps;
+    uint16_t num_triggers;
     const struct RAVEN_ROOM_MAP_INFO *maps;
-    const struct RAVEN_ROOM_ENTITY_INFO *entities;
     const struct RAVEN_ROOM_TRIGGER_INFO *triggers;
 };
 
 #endif /* RAVEN_SKIP_STRUCTS_ROOM */
 
-#ifndef RAVEN_SKIP_STRUCTS_ROOM_SCRIPT
+#ifndef RAVEN_SKIP_ROOM_SCRIPT
 
 struct RAVEN_STATE;
-typedef void (*raven_room_init_function)(uint32_t room_id, struct RAVEN_STATE *);
+typedef void (*raven_room_init_function)(uint32_t, struct RAVEN_STATE *);
 
 struct RAVEN_ROOM_SCRIPT {
     raven_room_init_function init;
 };
 
-#endif /* RAVEN_SKIP_STRUCTS_ROOM_SCRIPT */
+#endif /* RAVEN_SKIP_ROOM_SCRIPT */
 
 extern const struct RAVEN_FONT raven_fonts[];
 extern const struct RAVEN_PROP_FONT raven_prop_fonts[];
@@ -199,6 +217,9 @@ extern const struct RAVEN_IMAGE raven_sprites[];
 extern const struct RAVEN_MAP raven_maps[];
 extern const struct RAVEN_SPRITE_ANIMATION raven_sprite_animations[];
 extern const struct RAVEN_ROOM raven_rooms[];
+
+#if RAVEN_ADD_ROOM_SCRIPTS
 extern const struct RAVEN_ROOM_SCRIPT *raven_room_script_table[];
+#endif /* RAVEN_ADD_ROOM_SCRIPTS */
 
 #endif /* RAVEN_DATA_H_FILE */

@@ -104,6 +104,8 @@ static void draw_map_fg(struct DRAW_MAP_INFO *mi)
     int tiles_stride = mi->map->w;
     const uint8_t *tiles = &mi->map->tiles[tile_y_first * tiles_stride];
 
+    //printf("map fg at (%d,%d), tiles (%d,%d)->(%d,%d)\n", mi->screen_x, mi->screen_y, tile_x_first, tile_y_first, tile_x_last, tile_y_last);
+
     int y_pos = mi->screen_y;
     for (int tile_y = tile_y_first; tile_y <= tile_y_last; tile_y++) {
         int x_pos = mi->screen_x;

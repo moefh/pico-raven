@@ -6,9 +6,11 @@
 #include "joy.h"
 #include "sprite_shadow.h"
 
-enum RAVEN_DIRECTION {
-    RAVEN_DIR_RIGHT,
-    RAVEN_DIR_LEFT,
+enum PLAYER_STATE {
+    PLAYER_STATE_STAND,
+    PLAYER_STATE_WALK,
+    PLAYER_STATE_JUMP,
+    PLAYER_STATE_FALL,
 };
 
 struct RAVEN_PLAYER_CONTROL {
@@ -21,6 +23,7 @@ struct RAVEN_PLAYER {
     const struct RAVEN_SPRITE_ANIMATION *anim;
     int32_t x;
     int32_t y;
+    uint8_t state;
     uint8_t direction;
     uint8_t shadow_enabled;
     uint8_t anim_loop;
@@ -33,7 +36,7 @@ struct RAVEN_PLAYER {
 
 void player_init(struct RAVEN_PLAYER *ch);
 void player_update_sprite_info(struct RAVEN_PLAYER *ch);
-void player_advance_state_with_control(struct RAVEN_PLAYER *ch, struct RAVEN_PLAYER_CONTROL *ct);
+void player_update(struct RAVEN_PLAYER *ch, struct RAVEN_PLAYER_CONTROL *ct);
 
 void player_control_init(struct RAVEN_PLAYER_CONTROL *ct);
 void player_control_update(struct RAVEN_PLAYER_CONTROL *ct, struct RAVEN_PLAYER *ch);

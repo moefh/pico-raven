@@ -9,6 +9,7 @@
 #include "config.h"
 #include "core_msg.h"
 #include "game_data.h"
+#include "collision.h"
 #include "screen.h"
 #include "sprite_shadow.h"
 #include "draw_room.h"
@@ -34,22 +35,16 @@ static void load_room(uint32_t room_id)
         if (game.room_h < h) game.room_h = h;
     }
 
+    // setup player
+    player_init(&game.player);
+    player_control_init(&game.player_control);
+
     // setup room
     draw_room_init_room(&game);
     const struct RAVEN_ROOM_SCRIPT *script_table = raven_room_script_table[room_id];
     if (script_table) {
         script_table->init(room_id, &game);
     }
-
-    // setup player
-    player_init(&game.player);
-    player_control_init(&game.player_control);
-
-    const struct RAVEN_ROOM_TRIGGER_INFO *spawn = &game.room->triggers[RAVEN_ROOM_INTRO_TRG_SPAWN_POINT];
-    game.player.x = spawn->x;
-    game.player.y = spawn->y + spawn->h - game.player.anim->collision.h;
-    game.screen_x = 0;
-    game.screen_y = 0;
 }
 
 static void game_init(void)
@@ -80,8 +75,9 @@ static void load_game(void)
     int ret = savegame_read(&tmp_game, 0);
     if (ret == 0) {
         game = tmp_game;
-        game.player.anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_STAND;
+        game.player.state = PLAYER_STATE_STAND;
         game.player.anim_frame = 0;
+        player_control_init(&game.player_control);
         game.display.msg_mod_event_frames_left = 0;
         game.display.msg_save_frames_left = 0;
         msg_mod_play(&raven_mods[game.mod.index], game.mod.volume>>4, true);
@@ -154,17 +150,9 @@ static void update_game_state(void)
     if (game.display.msg_load_frames_left > 0) game.display.msg_load_frames_left--;
     if (game.display.msg_save_frames_left > 0) game.display.msg_save_frames_left--;
 
-    // animate character
-    player_advance_state_with_control(&game.player, &game.player_control);
-    if (game.player.x < 0) game.player.x = 0;
-    if (game.player.x + game.player.anim->collision.w >= game.room_w) {
-        game.player.x = game.room_w - game.player.anim->collision.w;
-    }
-    if (game.player.y < 0) game.player.y = 0;
-    if (game.player.y + game.player.anim->collision.h >= game.room_h) {
-        game.player.y = game.room_h - game.player.anim->collision.h;
-    }
-    player_update_sprite_info(&game.player);
+    // update character
+    collision_init_frame(game.room);
+    player_update(&game.player, &game.player_control);
 
     // make screen follow player (TODO: add some slack)
     game.screen_x = game.player.x + game.player.sprite->width/2 - 160;

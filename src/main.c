@@ -5,7 +5,6 @@
 
 #include "config.h"
 
-#include "lib/mod_play.h"
 #include "lib/joystick.h"
 #include "lib/joy_wii_i2c.h"
 #include "lib/sysinfo.h"

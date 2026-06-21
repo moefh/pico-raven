@@ -8,6 +8,11 @@
 #include "lib/vga_image_8bit.h"
 #include "lib/vga_font_8bit.h"
 
+enum RAVEN_DIRECTION {
+    RAVEN_DIR_RIGHT,
+    RAVEN_DIR_LEFT,
+};
+
 #define RAVEN_SKIP_STRUCTS_MOD
 #define RAVEN_SKIP_STRUCTS_IMAGE
 #define RAVEN_SKIP_STRUCTS_FONT
