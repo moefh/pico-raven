@@ -7,10 +7,10 @@
 #define TILE_BLOCK       0
 #define TILE_L_RAMP_FULL 1
 #define TILE_R_RAMP_FULL 2
-#define TILE_L_RAMP_TOP  3
-#define TILE_L_RAMP_BOT  4
-#define TILE_R_RAMP_TOP  5
-#define TILE_R_RAMP_BOT  6
+#define TILE_L_RAMP_BOT  3
+#define TILE_L_RAMP_TOP  4
+#define TILE_R_RAMP_BOT  5
+#define TILE_R_RAMP_TOP  6
 
 static const struct RAVEN_ROOM *room;
 static int32_t room_w;
@@ -63,13 +63,14 @@ static int h_move(struct COLLISION_RECT *rect, int sx)
             return (sx > 0) ? COLLISION_FLAGS_RIGHT : COLLISION_FLAGS_LEFT;
 
         case TILE_L_RAMP_FULL:
-            if (ty < ty_bot) {  // ramp above foot level
+            if (ty < ty_bot) {
+                // ramp above foot level
                 return (sx > 0) ? COLLISION_FLAGS_RIGHT : COLLISION_FLAGS_LEFT;
             }
             {
                 int ix = (rx + sx) % TILE_SIZE;
                 int iy = (rect->y + rect->h - 1) % TILE_SIZE;
-                if (ix >= TILE_SIZE - 1 - iy) {  // under ramp
+                if (iy >= TILE_SIZE - 1 - ix) {  // under ramp
                     if (sx < 0) {
                         return COLLISION_FLAGS_LEFT;
                     }
@@ -81,13 +82,14 @@ static int h_move(struct COLLISION_RECT *rect, int sx)
             break;
 
         case TILE_R_RAMP_FULL:
-            if (ty < ty_bot) {  // ramp above foot level
+            if (ty < ty_bot) {
+                // ramp above foot level
                 return (sx > 0) ? COLLISION_FLAGS_RIGHT : COLLISION_FLAGS_LEFT;
             }
             {
                 int ix = (rx + sx) % TILE_SIZE;
                 int iy = (rect->y + rect->h - 1) % TILE_SIZE;
-                if (ix <= iy) {  // under ramp
+                if (iy >= ix) {  // under ramp
                     if (sx > 0) {
                         // ramp from wrong side
                         return COLLISION_FLAGS_RIGHT;
@@ -100,19 +102,81 @@ static int h_move(struct COLLISION_RECT *rect, int sx)
             break;
 
         case TILE_L_RAMP_TOP:
-            // TODO
+            if (ty < ty_bot) {
+                // ramp above foot level
+                return (sx > 0) ? COLLISION_FLAGS_RIGHT : COLLISION_FLAGS_LEFT;
+            }
+            {
+                int ix = (rx + sx) % TILE_SIZE;
+                int iy = (rect->y + rect->h - 1) % TILE_SIZE;
+                if (2*iy >= TILE_SIZE - 1 - ix) {  // under ramp
+                    if (sx < 0) {
+                        return COLLISION_FLAGS_LEFT;
+                    }
+                    rect->x++;
+                    rect->y--;
+                    return COLLISION_FLAGS_RAMP;
+                }
+            }
             break;
 
         case TILE_L_RAMP_BOT:
-            // TODO
+            if (ty < ty_bot) {
+                // ramp above foot level
+                return (sx > 0) ? COLLISION_FLAGS_RIGHT : COLLISION_FLAGS_LEFT;
+            }
+            {
+                int ix = (rx + sx) % TILE_SIZE;
+                int iy = (rect->y + rect->h - 1) % TILE_SIZE;
+                if (2*iy - TILE_SIZE >= TILE_SIZE - 1 - ix) {  // under ramp
+                    if (sx < 0) {
+                        return COLLISION_FLAGS_LEFT;
+                    }
+                    rect->x++;
+                    rect->y--;
+                    return COLLISION_FLAGS_RAMP;
+                }
+            }
             break;
 
         case TILE_R_RAMP_TOP:
-            // TODO
+            if (ty < ty_bot) {
+                // ramp above foot level
+                return (sx > 0) ? COLLISION_FLAGS_RIGHT : COLLISION_FLAGS_LEFT;
+            }
+            {
+                int ix = (rx + sx) % TILE_SIZE;
+                int iy = (rect->y + rect->h - 1) % TILE_SIZE;
+                if (2*iy >= ix) {  // under ramp
+                    if (sx > 0) {
+                        // ramp from wrong side
+                        return COLLISION_FLAGS_RIGHT;
+                    }
+                    rect->x--;
+                    rect->y--;
+                    return COLLISION_FLAGS_RAMP;
+                }
+            }
             break;
 
         case TILE_R_RAMP_BOT:
-            // TODO
+            if (ty < ty_bot) {
+                // ramp above foot level
+                return (sx > 0) ? COLLISION_FLAGS_RIGHT : COLLISION_FLAGS_LEFT;
+            }
+            {
+                int ix = (rx + sx) % TILE_SIZE;
+                int iy = (rect->y + rect->h - 1) % TILE_SIZE;
+                if (2*iy - TILE_SIZE >= ix) {  // under ramp
+                    if (sx > 0) {
+                        // ramp from wrong side
+                        return COLLISION_FLAGS_RIGHT;
+                    }
+                    rect->x--;
+                    rect->y--;
+                    return COLLISION_FLAGS_RAMP;
+                }
+            }
             break;
         }
     }
@@ -144,14 +208,15 @@ static int v_move(struct COLLISION_RECT *rect, int sy)
                 return COLLISION_FLAGS_UP;
             }
 
-            if (tx < tx_right) {       // hanging over ramp
+            if (tx < tx_right) {
+                // hanging over ramp
                 return COLLISION_FLAGS_DOWN;
             }
 
             {
                 int ix = (rect->x + rect->w - 1) % TILE_SIZE;
                 int iy = (ry + 1) % TILE_SIZE;
-                if (ix >= TILE_SIZE - 1 - iy) {
+                if (iy >= TILE_SIZE - 1 - ix) {
                     return COLLISION_FLAGS_DOWN;
                 }
             }
@@ -162,33 +227,94 @@ static int v_move(struct COLLISION_RECT *rect, int sy)
                 return COLLISION_FLAGS_UP;
             }
 
-            if (tx > tx_left) {       // hanging over ramp
+            if (tx > tx_left) {
+                // hanging over ramp
                 return COLLISION_FLAGS_DOWN;
             }
 
             {
                 int ix = rect->x % TILE_SIZE;
                 int iy = (ry + 1) % TILE_SIZE;
-                if (ix <= iy) {
+                if (iy >= ix) {
                     return COLLISION_FLAGS_DOWN;
                 }
             }
             break;
 
         case TILE_L_RAMP_TOP:
-            // TODO
+            if (sy < 0) {
+                return COLLISION_FLAGS_UP;
+            }
+
+            if (tx < tx_right) {
+                // hanging over ramp
+                return COLLISION_FLAGS_DOWN;
+            }
+
+            {
+                int ix = (rect->x + rect->w - 1) % TILE_SIZE;
+                int iy = (ry + 1) % TILE_SIZE;
+                if (2*iy >= TILE_SIZE - 1 - ix) {
+                    return COLLISION_FLAGS_DOWN;
+                }
+            }
             break;
 
         case TILE_L_RAMP_BOT:
-            // TODO
+            if (sy < 0) {
+                return COLLISION_FLAGS_UP;
+            }
+
+            if (tx < tx_right && (ry + 1) % TILE_SIZE >= TILE_SIZE/2) {
+                // hanging over ramp
+                return COLLISION_FLAGS_DOWN;
+            }
+
+            {
+                int ix = (rect->x + rect->w - 1) % TILE_SIZE;
+                int iy = (ry + 1) % TILE_SIZE;
+                if (2*iy - TILE_SIZE >= TILE_SIZE - 1 - ix) {
+                    return COLLISION_FLAGS_DOWN;
+                }
+            }
             break;
 
         case TILE_R_RAMP_TOP:
-            // TODO
+            if (sy < 0) {
+                return COLLISION_FLAGS_UP;
+            }
+
+            if (tx > tx_left) {
+                // hanging over ramp
+                return COLLISION_FLAGS_DOWN;
+            }
+
+            {
+                int ix = rect->x % TILE_SIZE;
+                int iy = (ry + 1) % TILE_SIZE;
+                if (2*iy >= ix) {
+                    return COLLISION_FLAGS_DOWN;
+                }
+            }
             break;
 
         case TILE_R_RAMP_BOT:
-            // TODO
+            if (sy < 0) {
+                return COLLISION_FLAGS_UP;
+            }
+
+            if (tx > tx_left && (ry + 1) % TILE_SIZE >= TILE_SIZE/2) {
+                // hanging over ramp
+                return COLLISION_FLAGS_DOWN;
+            }
+
+            {
+                int ix = rect->x % TILE_SIZE;
+                int iy = (ry + 1) % TILE_SIZE;
+                if (2*iy - TILE_SIZE >= ix) {
+                    return COLLISION_FLAGS_DOWN;
+                }
+            }
             break;
         }
     }
@@ -228,18 +354,17 @@ int collision_move(struct COLLISION_RECT *rect, int dx, int dy)
     int y = 0;
     int flags = 0;
     while (42) {
+        if (x == x_end && y == y_end) { break; }
         int e2 = 2 * error;
         if (e2 >= dy) {
             error += dy;
             flags |= h_move(rect, sx);
             x += sx;
-            if (x == x_end) { break; }
         }
         if (e2 <= dx) {
             error += dx;
             flags |= v_move(rect, sy);
             y += sy;
-            if (y == y_end) { break; }
         }
     }
     return flags;

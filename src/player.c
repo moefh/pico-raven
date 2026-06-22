@@ -11,10 +11,10 @@
 #define DX_FRICTION   ((int32_t) 0x0c0)
 #define DX_MAX        ((int32_t) 0x700)
 
-#define DY_GRAVITY    ((int32_t) 0x0a0)
-#define DY_MAX        ((int32_t) 0x700)
+#define DY_GRAVITY    ((int32_t) 0x0c0)
+#define DY_MAX        ((int32_t) 0x900)
 #define DY_JUMP_START ((int32_t)-0xa00)
-#define DY_JUMP_HOLD  ((int32_t)-0x050)
+#define DY_JUMP_HOLD  ((int32_t)-0x060)
 
 static void update_sprite_info(struct RAVEN_PLAYER *pl)
 {
@@ -69,12 +69,20 @@ void player_update(struct RAVEN_PLAYER *pl, struct RAVEN_PLAYER_CONTROL *plc)
         .w = pl->anim->collision.w,
         .h = pl->anim->collision.h,
     };
-    if (collision_move(&rect, dx, dy) & COLLISION_FLAGS_DOWN) {
+    int collision = collision_move(&rect, dx, dy);
+    if (collision & COLLISION_FLAGS_DOWN) {
         plc->dy = 0;
         if (JOY_BTN_HELD(&joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
             pl->state = PLAYER_STATE_WALK;
         } else {
             pl->state = PLAYER_STATE_STAND;
+        }
+    } else if (collision & COLLISION_FLAGS_UP) {
+        if (plc->dy < 0) {
+            plc->dy = 0;
+        }
+        if (pl->state == PLAYER_STATE_JUMP) {
+            pl->state = PLAYER_STATE_FALL;
         }
     } else if (pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK) {
         int y = rect.y;

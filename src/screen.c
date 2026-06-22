@@ -164,6 +164,22 @@ static void draw_room(struct GAME_STATE *game)
 
     draw_room_fg(info);
     GAME_PERF(game, room_fg_us);
+
+    if (game->display.show_perf) {
+        // collision rect
+        int sx = game->player.x - game->screen_x;
+        int sy = game->player.y - game->screen_y;
+        int w = game->player.anim->collision.w;
+        int h = game->player.anim->collision.h;
+        for (int x = 0; x < w; x++) {
+            vga_screen.lines8[sy][sx+x] = 0x38;
+            vga_screen.lines8[sy+h-1][sx+x] = 0x38;
+        }
+        for (int y = 0; y < h; y++) {
+            vga_screen.lines8[sy+y][sx] = 0x38;
+            vga_screen.lines8[sy+y][sx+w-1] = 0x38;
+        }
+    }
 }
 
 void screen_render(struct GAME_STATE *game)
@@ -179,12 +195,9 @@ void screen_render(struct GAME_STATE *game)
     font_move(10, 10);
     font_printf("%d fps", fps);
 
-    int pw = game->player.anim->collision.w;
-    int ph = game->player.anim->collision.w;
-    font_move(10, 20); font_printf("pos  %4ld,%-4ld | %4ld,%-4ld\n", game->player.x, game->player.y, game->player.x+pw-1, game->player.y);
-    font_move(10, 30); font_printf("pos  %4ld,%-4ld | %4ld,%-4ld\n", game->player.x, game->player.y+ph-1, game->player.x+pw-1, game->player.y+ph-1);
-    font_move(10, 40); font_printf("vel %5ld,%-5ld| %4ld,%-4ld\n", game->player_control.dx, game->player_control.dy, game->player_control.dx>>8, game->player_control.dy>>8);
-    font_move(10, 50); font_printf("state %d\n", game->player.state);
+    font_move(10, 20); font_printf("pos  %4ld,%-4ld\n", game->player.x, game->player.y);
+    font_move(10, 30); font_printf("vel %5ld,%-5ld\n", game->player_control.dx, game->player_control.dy);
+    font_move(10, 40); font_printf("state %d\n", game->player.state);
 
     update_perf_history(&game->perf);
     if (game->display.show_perf) {
