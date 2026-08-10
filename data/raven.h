@@ -98,6 +98,8 @@ struct RAVEN_MAP {
 struct RAVEN_SPRITE_ANIMATION_LOOP {
     uint16_t offset;   // offset into animation frame_indices
     uint16_t length;   // loop data length
+    uint8_t dont_loop;
+    uint8_t frame_adv;
 };
 
 struct RAVEN_SPRITE_ANIMATION_COLLISION {
@@ -156,29 +158,26 @@ struct RAVEN_ROOM_MAP_INFO {
 };
 
 struct RAVEN_ROOM_TRIGGER_INFO {
-    enum RAVEN_ROOM_TRIGGER_TYPE type;
+    uint16_t type; // enum RAVEN_ROOM_TRIGGER_TYPE
+    uint16_t trigger_id;
     int16_t x;
     int16_t y;
     union {
         struct {
-            uint32_t data0;
-            uint32_t data1;
-            uint32_t data2;
-            uint32_t data3;
+            uint16_t data0;
+            uint16_t data1;
+            uint16_t data2;
+            uint16_t data3;
         } any;
         struct {
             uint8_t direction;
         } player_spawn;
         struct {
-             const struct RAVEN_ROOM *room;
-             uint16_t room_id;
-             uint16_t door;
-             uint16_t width;
-             uint16_t height;
+             const struct RAVEN_ROOM *dest_room;
+             uint16_t dest_trigger_id;
         } door;
         struct {
              const struct RAVEN_SPRITE_ANIMATION *animation;
-             uint16_t type;
         } enemy_spawn;
         struct {
              uint16_t width;
@@ -196,6 +195,25 @@ struct RAVEN_ROOM {
 };
 
 #endif /* RAVEN_SKIP_STRUCTS_ROOM */
+
+#ifndef RAVEN_SKIP_STRUCTS_WORLD
+
+struct RAVEN_WORLD_REGION {
+    uint8_t x;
+    uint8_t y;
+    uint8_t width;
+    uint8_t height;
+    const uint32_t *block_bitmap;
+    const uint8_t *blocks;
+    const uint16_t *room_indices;
+};
+
+struct RAVEN_WORLD {
+    uint16_t num_regions;
+    const struct RAVEN_WORLD_REGION *regions;
+};
+
+#endif /* RAVEN_SKIP_STRUCTS_WORLD */
 
 #ifndef RAVEN_SKIP_ROOM_SCRIPT
 

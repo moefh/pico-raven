@@ -123,15 +123,15 @@ static void draw_perf_history(uint32_t x, uint32_t y)
 static void draw_joy_buttons(int y)
 {
     font_align(FONT_ALIGN_LEFT);
-    if (joy.cur & JOY_BTN_UP)    { font_move(10+0*36, y); font_printf("UP"); }
-    if (joy.cur & JOY_BTN_DOWN)  { font_move(10+1*36, y); font_printf("DOWN"); }
-    if (joy.cur & JOY_BTN_LEFT)  { font_move(10+2*36, y); font_printf("LEFT"); }
-    if (joy.cur & JOY_BTN_RIGHT) { font_move(10+3*36, y); font_printf("RIGHT"); }
+    if (joy.cur & JOY_BTN_UP)    { font_move(10+0*10, y); font_printf("^"); }
+    if (joy.cur & JOY_BTN_DOWN)  { font_move(10+1*10, y); font_printf("V"); }
+    if (joy.cur & JOY_BTN_LEFT)  { font_move(10+2*10, y); font_printf("<-"); }
+    if (joy.cur & JOY_BTN_RIGHT) { font_move(10+3*10, y); font_printf("->"); }
 
-    if (joy.cur & JOY_BTN_A) { font_move(10+0*12, y+10); font_printf("A"); }
-    if (joy.cur & JOY_BTN_B) { font_move(10+1*12, y+10); font_printf("B"); }
-    if (joy.cur & JOY_BTN_C) { font_move(10+2*12, y+10); font_printf("C"); }
-    if (joy.cur & JOY_BTN_D) { font_move(10+3*12, y+10); font_printf("D"); }
+    if (joy.cur & JOY_BTN_A) { font_move(10+0*12, y+10); font_printf("B"); }
+    if (joy.cur & JOY_BTN_B) { font_move(10+1*12, y+10); font_printf("Y"); }
+    if (joy.cur & JOY_BTN_C) { font_move(10+2*12, y+10); font_printf("A"); }
+    if (joy.cur & JOY_BTN_D) { font_move(10+3*12, y+10); font_printf("X"); }
 
     if (joy.cur & JOY_BTN_L1) { font_move(10+0*18, y+20); font_printf("L1"); }
     if (joy.cur & JOY_BTN_R1) { font_move(10+1*18, y+20); font_printf("R1"); }
@@ -198,6 +198,7 @@ void screen_render(struct GAME_STATE *game)
     font_move(10, 20); font_printf("pos  %4ld,%-4ld\n", game->player.x, game->player.y);
     font_move(10, 30); font_printf("vel %5ld,%-5ld\n", game->player_control.dx, game->player_control.dy);
     font_move(10, 40); font_printf("state %d\n", game->player.state);
+    font_move(10, 50); font_printf("frame %d\n", game->player.anim_frame >> 8);
 
     update_perf_history(&game->perf);
     if (game->display.show_perf) {

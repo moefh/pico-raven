@@ -5,8 +5,6 @@
 
 #include "lib/mem.h"
 
-#define ANIM_ADV_STEPS (1<<4)
-
 #define DX_ACCEL      ((int32_t) 0x100)
 #define DX_FRICTION   ((int32_t) 0x0c0)
 #define DX_MAX        ((int32_t) 0x700)
@@ -24,10 +22,18 @@ static void update_sprite_info(struct RAVEN_PLAYER *pl)
     case PLAYER_STATE_JUMP:  pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_JUMP; break;
     case PLAYER_STATE_FALL:  pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_FALL; break;
     }
-    if ((pl->anim_frame>>6) >= pl->anim->loops[pl->anim_loop].length) {
-        pl->anim_frame = 0;
+    const struct RAVEN_SPRITE_ANIMATION_LOOP *loop = &pl->anim->loops[pl->anim_loop];
+    int loop_frame = pl->anim_frame >> 8;
+    if (loop_frame >= loop->length) {
+        if (loop->dont_loop) {
+            loop_frame = loop->length - 1;
+            pl->anim_frame = (loop_frame) << 8;
+        } else {
+            loop_frame = 0;
+            pl->anim_frame &= 0xff;
+        }
     }
-    pl->sprite_frame = pl->anim->frame_indices[pl->anim->loops[pl->anim_loop].offset + (pl->anim_frame>>6)];
+    pl->sprite_frame = pl->anim->frame_indices[loop->offset + loop_frame];
     if (pl->direction == RAVEN_DIR_LEFT) {
         pl->sprite_frame += pl->sprite->num_frames/2;
         pl->sprite_x = pl->x - (pl->sprite->width - (pl->anim->collision.x + pl->anim->collision.w));
@@ -77,25 +83,27 @@ void player_update(struct RAVEN_PLAYER *pl, struct RAVEN_PLAYER_CONTROL *plc)
         } else {
             pl->state = PLAYER_STATE_STAND;
         }
+        pl->anim_frame = 0;
     } else if (collision & COLLISION_FLAGS_UP) {
         if (plc->dy < 0) {
             plc->dy = 0;
         }
         if (pl->state == PLAYER_STATE_JUMP) {
             pl->state = PLAYER_STATE_FALL;
+            pl->anim_frame = 0;
         }
     } else if (pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK) {
         int y = rect.y;
         if (collision_move(&rect, 0, 1) == 0) {
             pl->state = PLAYER_STATE_FALL;
+            pl->anim_frame = 0;
         }
         rect.y = y;
     }
 
     pl->x = rect.x;
     pl->y = rect.y;
-
-    pl->anim_frame += ANIM_ADV_STEPS;
+    pl->anim_frame += pl->anim->loops[pl->anim_loop].frame_adv + 1; // [0-255] -> [1-256]
     update_sprite_info(pl);
 }
 
@@ -112,7 +120,7 @@ void player_control_update(struct RAVEN_PLAYER_CONTROL *plc, struct RAVEN_PLAYER
         if (JOY_BTN_PRESSED(&joy, JOY_BTN_RIGHT) || JOY_BTN_PRESSED(&joy, JOY_BTN_LEFT)) {
             pl->state = PLAYER_STATE_WALK;
             pl->anim_frame = 0;
-        } else if (! JOY_BTN_HELD(&joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
+        } else if (pl->state != PLAYER_STATE_STAND && ! JOY_BTN_HELD(&joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
             pl->state = PLAYER_STATE_STAND;
             pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_STAND;
             pl->anim_frame = 0;
@@ -148,6 +156,7 @@ void player_control_update(struct RAVEN_PLAYER_CONTROL *plc, struct RAVEN_PLAYER
     if ((pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK) && JOY_BTN_PRESSED(&joy, JOY_BTN_A)) {
         plc->dy = DY_JUMP_START;
         pl->state = PLAYER_STATE_JUMP;
+        pl->anim_frame = 0;
     }
 
     // hold jump / start fall
@@ -156,6 +165,7 @@ void player_control_update(struct RAVEN_PLAYER_CONTROL *plc, struct RAVEN_PLAYER
             plc->dy += DY_JUMP_HOLD;
         } else {
             pl->state = PLAYER_STATE_FALL;
+            pl->anim_frame = 0;
         }
     }
 

@@ -2,9 +2,9 @@
 
 #include "room.h"
 
-ADD_ROOM_SCRIPT(intro);
+ADD_ROOM_SCRIPT(west__buntown_gate);
 
-static void intro_init(uint32_t room_id, struct GAME_STATE *game)
+static void west__buntown_gate_init(uint32_t room_id, struct GAME_STATE *game)
 {
     printf("init room: id=%d, %p\n", (int)room_id, game);
 

@@ -57,7 +57,7 @@ static void game_init(void)
     game.display.msg_save_frames_left = 0;
     game.display.msg_mod_event_frames_left = 0;
 
-    load_room(RAVEN_ROOM_ID_INTRO);
+    load_room(RAVEN_ROOM_ID_WEST__BUNTOWN_GATE);
 }
 
 static void process_mod_event(uint8_t chan, uint8_t event)
