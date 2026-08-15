@@ -219,9 +219,11 @@ struct RAVEN_WORLD {
 
 struct RAVEN_STATE;
 typedef void (*raven_room_init_function)(uint32_t, struct RAVEN_STATE *);
+typedef void (*raven_room_update_function)(struct RAVEN_STATE *);
 
 struct RAVEN_ROOM_SCRIPT {
     raven_room_init_function init;
+    raven_room_update_function update;
 };
 
 #endif /* RAVEN_SKIP_ROOM_SCRIPT */

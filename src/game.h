@@ -36,6 +36,14 @@ struct GAME_STATE_DISPLAY {
     uint8_t show_perf;
 };
 
+struct GAME_STATE_ROOM_TRANSITION {
+    uint32_t dst_room_id;
+    uint32_t src_room_id;
+    uint16_t dst_door_trigger_id;
+    uint16_t src_door_trigger_id;
+    int8_t enabled;
+};
+
 struct GAME_STATE {
     struct GAME_STATE_MOD mod;
     struct GAME_STATE_LED led;
@@ -45,18 +53,16 @@ struct GAME_STATE {
     struct RAVEN_PLAYER player;
     struct RAVEN_PLAYER_CONTROL player_control;
 
+    struct GAME_STATE_ROOM_TRANSITION room_transition;
+
     int room_id;
     int room_w;
     int room_h;
     int screen_x;
     int screen_y;
-};
 
-struct GAME_ROOM_TRANSITION {
-    uint32_t room_id;
-    uint32_t from_room_id;
-    uint16_t door_trigger_id;
-    uint16_t from_door_trigger_id;
+    uint8_t room_doors_enabled;
+    void (*update_room)(struct GAME_STATE *);
 };
 
 void game_main_loop(void);

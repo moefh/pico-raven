@@ -117,7 +117,7 @@ void player_control_update(struct RAVEN_PLAYER_CONTROL *plc, struct RAVEN_PLAYER
 {
     // walk
     if (pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK) {
-        if (JOY_BTN_PRESSED(&joy, JOY_BTN_RIGHT) || JOY_BTN_PRESSED(&joy, JOY_BTN_LEFT)) {
+        if (pl->state != PLAYER_STATE_WALK && JOY_BTN_HELD(&joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
             pl->state = PLAYER_STATE_WALK;
             pl->anim_frame = 0;
         } else if (pl->state != PLAYER_STATE_STAND && ! JOY_BTN_HELD(&joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
@@ -138,7 +138,7 @@ void player_control_update(struct RAVEN_PLAYER_CONTROL *plc, struct RAVEN_PLAYER
     }
 
     // change direction
-    if (JOY_BTN_PRESSED(&joy, JOY_BTN_RIGHT) || JOY_BTN_PRESSED(&joy, JOY_BTN_LEFT)) {
+    if (JOY_BTN_HELD(&joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
         pl->direction = JOY_BTN_HELD(&joy, JOY_BTN_RIGHT) ? RAVEN_DIR_RIGHT : RAVEN_DIR_LEFT;
     }
 

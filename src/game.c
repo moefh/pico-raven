@@ -20,10 +20,87 @@
 
 static struct GAME_STATE game;
 
+void game_screen_follow_player(void)
+{
+    game.screen_x = game.player.x + game.player.sprite->width/2 - 160;
+    game.screen_y = game.player.y + game.player.sprite->height/2 - 120;
+    if (game.screen_x < 0) game.screen_x = 0;
+    if (game.screen_y < 0) game.screen_y = 0;
+    if (game.screen_x >= game.room_w - vga_screen.width) game.screen_x = game.room_w - vga_screen.width;
+    if (game.screen_y >= game.room_h - vga_screen.height) game.screen_y = game.room_h - vga_screen.height;
+}
+
 int game_check_player_trigger(uint32_t trigger_type_flags)
 {
-    const struct RAVEN_ROOM *room = &raven_rooms[game.room_id];
+    int p1_x = game.player.x + game.player.anim->collision.w/2;
+    int p1_y = game.player.y + 8;
+    int p2_x = game.player.x + game.player.anim->collision.w/2;
+    int p2_y = game.player.y + game.player.anim->collision.h/2 - 9;
 
+    const struct RAVEN_ROOM *room = &raven_rooms[game.room_id];
+    for (int tr_index = 0; tr_index < room->num_triggers; tr_index++) {
+        const struct RAVEN_ROOM_TRIGGER_INFO *tr = &room->triggers[tr_index];
+        if ((trigger_type_flags & (1 << tr->type)) == 0) {
+            continue;
+        }
+        int tr_w = 0;
+        int tr_h = 0;
+        if (tr->type == RAVEN_ROOM_TRIGGER_TYPE_DOOR) {
+            tr_w = 16;
+            tr_h = 64;
+        } else if (tr->type == RAVEN_ROOM_TRIGGER_TYPE_TRAP) {
+            tr_w = tr->trap.width;
+            tr_h = tr->trap.height;
+        } else {
+            continue;
+        }
+        if ((p1_x >= tr->x && p1_x < tr->x + tr_w && p1_y >= tr->y && p1_y < tr->y + tr_h) ||
+            (p2_x >= tr->x && p2_x < tr->x + tr_w && p2_y >= tr->y && p2_y < tr->y + tr_h)) {
+            return tr_index;
+        }
+    }
+    return -1;
+}
+
+int game_place_player_at_door_exit(int32_t door_trigger_id)
+{
+    const struct RAVEN_ROOM *room = &raven_rooms[game.room_id];
+    const struct RAVEN_ROOM_TRIGGER_INFO *door = NULL;
+    for (int i = 0; i < room->num_triggers; i++) {
+        if (room->triggers[i].trigger_id == door_trigger_id) {
+            door = &room->triggers[i];
+            break;
+        }
+    }
+    if (door == NULL) {
+        return -1;
+    }
+
+    // move player near door
+    if (door->x <= TILE_SIZE) {
+        game.player.direction = RAVEN_DIR_RIGHT;
+        game.player.x = TILE_SIZE + 2;
+        game.player.y = door->y + 4*TILE_SIZE - game.player.anim->collision.h;
+    } else {
+        game.player.direction = RAVEN_DIR_LEFT;
+        game.player.x = door->x - 2 - game.player.anim->collision.w;
+        game.player.y = door->y + 4*TILE_SIZE - game.player.anim->collision.h;
+    }
+
+    // set player on ground
+    struct COLLISION_RECT rect = {
+        .x = game.player.x,
+        .y = game.player.y,
+        .w = game.player.anim->collision.w,
+        .h = game.player.anim->collision.h,
+    };
+    collision_init_frame(game.room_id);
+    while (collision_move(&rect, 0, 128) == 0) {
+        // keep going down until we hit the floor
+    }
+    game.player.x = rect.x;
+    game.player.y = rect.y;
+    return 0;
 }
 
 static void load_room(uint32_t room_id)
@@ -47,9 +124,13 @@ static void load_room(uint32_t room_id)
 
     // setup room
     draw_room_init_room(&game);
+    game.room_doors_enabled = 1;
     const struct RAVEN_ROOM_SCRIPT *script_table = raven_room_script_table[room_id];
     if (script_table) {
         script_table->init(room_id, &game);
+        game.update_room = script_table->update;
+    } else {
+        game.update_room = NULL;
     }
 }
 
@@ -159,14 +240,23 @@ static void update_game_state(void)
     // update character
     collision_init_frame(game.room_id);
     player_update(&game.player, &game.player_control);
+    game_screen_follow_player();
 
-    // make screen follow player (TODO: add some slack)
-    game.screen_x = game.player.x + game.player.sprite->width/2 - 160;
-    game.screen_y = game.player.y + game.player.sprite->height/2 - 120;
-    if (game.screen_x < 0) game.screen_x = 0;
-    if (game.screen_y < 0) game.screen_y = 0;
-    if (game.screen_x >= game.room_w - vga_screen.width) game.screen_x = game.room_w - vga_screen.width;
-    if (game.screen_y >= game.room_h - vga_screen.height) game.screen_y = game.room_h - vga_screen.height;
+    // update room
+    if (game.room_doors_enabled) {
+        int door_index = game_check_player_trigger(1<<RAVEN_ROOM_TRIGGER_TYPE_DOOR);
+        if (door_index >= 0) {
+            const struct RAVEN_ROOM_TRIGGER_INFO *door = &raven_rooms[game.room_id].triggers[door_index];
+            game.room_transition.src_room_id = game.room_id;
+            game.room_transition.src_door_trigger_id = door->trigger_id;
+            game.room_transition.dst_room_id = (uint16_t) (door->door.dest_room - raven_rooms);
+            game.room_transition.dst_door_trigger_id = door->door.dest_trigger_id;
+            game.room_transition.enabled = true;
+        }
+    }
+    if (game.update_room) {
+        game.update_room(&game);
+    }
 }
 
 static void process_core_messages(void)
@@ -207,8 +297,16 @@ void game_main_loop(void)
         joy_wii_i2c_read_state(&joy);
         GAME_PERF(&game, joy_read_us);
 
-        process_joy_input();
-        update_game_state();
+        if (game.room_transition.enabled) {
+            // TODO: fade
+            load_room(game.room_transition.dst_room_id);
+            game_place_player_at_door_exit(game.room_transition.dst_door_trigger_id);
+            game_screen_follow_player();
+            game.room_transition.enabled = 0;
+        } else {
+            process_joy_input();
+            update_game_state();
+        }
 
         GAME_PERF(&game, update_us);
         screen_render(&game);
