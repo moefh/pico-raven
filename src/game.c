@@ -20,10 +20,16 @@
 
 static struct GAME_STATE game;
 
+int game_check_player_trigger(uint32_t trigger_type_flags)
+{
+    const struct RAVEN_ROOM *room = &raven_rooms[game.room_id];
+
+}
+
 static void load_room(uint32_t room_id)
 {
     const struct RAVEN_ROOM *room = &raven_rooms[room_id];
-    game.room = room;
+    game.room_id = room_id;
 
     // calc room width
     game.room_w = 0;
@@ -151,7 +157,7 @@ static void update_game_state(void)
     if (game.display.msg_save_frames_left > 0) game.display.msg_save_frames_left--;
 
     // update character
-    collision_init_frame(game.room);
+    collision_init_frame(game.room_id);
     player_update(&game.player, &game.player_control);
 
     // make screen follow player (TODO: add some slack)

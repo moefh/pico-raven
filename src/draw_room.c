@@ -15,10 +15,11 @@ void draw_room_init_room(struct GAME_STATE *game)
 
 struct DRAW_ROOM_INFO *draw_room_init_frame(struct MEM_ARENA *mem, struct GAME_STATE *game)
 {
+    const struct RAVEN_ROOM *room = &raven_rooms[game->room_id];
     struct DRAW_ROOM_INFO *draw_room_info = mem_add(mem, struct DRAW_ROOM_INFO);
     draw_room_info->n_maps = 0;
-    for (int i = 0; i < game->room->num_maps; i++) {
-        const struct RAVEN_ROOM_MAP_INFO *map_info = &game->room->maps[i];
+    for (int i = 0; i < room->num_maps; i++) {
+        const struct RAVEN_ROOM_MAP_INFO *map_info = &room->maps[i];
 
         int map_x = game->screen_x - map_info->x * TILE_SIZE;
         int map_y = game->screen_y - map_info->y * TILE_SIZE;

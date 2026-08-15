@@ -45,14 +45,22 @@ struct GAME_STATE {
     struct RAVEN_PLAYER player;
     struct RAVEN_PLAYER_CONTROL player_control;
 
-    const struct RAVEN_ROOM *room;
+    int room_id;
     int room_w;
     int room_h;
     int screen_x;
     int screen_y;
 };
 
+struct GAME_ROOM_TRANSITION {
+    uint32_t room_id;
+    uint32_t from_room_id;
+    uint16_t door_trigger_id;
+    uint16_t from_door_trigger_id;
+};
+
 void game_main_loop(void);
+int game_check_player_trigger(uint32_t trigger_type_flags);
 
 #define GAME_PERF_START(game)           (game)->perf.frame_start_us = time_us_32()
 #define GAME_PERF(game, name)           GAME_PERF_AT((game), name, time_us_32())

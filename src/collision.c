@@ -13,20 +13,10 @@
 #define TILE_R_RAMP_TOP  6
 
 static const struct RAVEN_ROOM *room;
-static int32_t room_w;
-static int32_t room_h;
 
-void collision_init_frame(const struct RAVEN_ROOM *r)
+void collision_init_frame(uint16_t room_id)
 {
-    room = r;
-    room_w = 0;
-    room_h = 0;
-    for (int i = 0; i < room->num_maps; i++) {
-        int w = room->maps[i].x + room->maps[i].map->w;
-        int h = room->maps[i].y + room->maps[i].map->h;
-        if (room_w < w) room_w = w;
-        if (room_h < h) room_h = h;
-    }
+    room = &raven_rooms[room_id];
 }
 
 static uint8_t get_room_tile_at(int tx, int ty)

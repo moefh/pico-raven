@@ -16,14 +16,7 @@ struct COLLISION_RECT {
     int16_t h;
 };
 
-void collision_init_frame(const struct RAVEN_ROOM *room);
-/*
-int collision_move_left(struct COLLISION_RECT *rect, int dx);
-int collision_move_right(struct COLLISION_RECT *rect, int dx);
-int collision_move_up(struct COLLISION_RECT *rect, int dy);
-int collision_move_down(struct COLLISION_RECT *rect, int dy);
-*/
-
+void collision_init_frame(uint16_t room_id);
 int collision_move(struct COLLISION_RECT *rect, int dx, int dy);
 
 #endif /* COLLISION_H_FILE */
