@@ -30,4 +30,6 @@ enum RAVEN_DIRECTION {
 #include "data/raven.h"
 #include "data/raven_data.h"
 
+#define TILE_SIZE 16
+
 #endif /* GAME_DATA_H_FILE */

@@ -3,6 +3,7 @@
 #include "player.h"
 #include "collision.h"
 
+#include "lib/joystick.h"
 #include "lib/mem.h"
 
 #define DX_ACCEL      ((int32_t) 0x100)
@@ -14,8 +15,10 @@
 #define DY_JUMP_START ((int32_t)-0xa00)
 #define DY_JUMP_HOLD  ((int32_t)-0x060)
 
-static void update_sprite_info(struct RAVEN_PLAYER *pl)
+static void update_sprite_info(struct GAME_STATE *game)
 {
+    struct RAVEN_PLAYER *pl = &game->player;
+
     switch (pl->state) {
     case PLAYER_STATE_STAND: pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_STAND; break;
     case PLAYER_STATE_WALK:  pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_RUN; break;
@@ -47,12 +50,16 @@ static void update_sprite_info(struct RAVEN_PLAYER *pl)
     }
 }
 
-void player_init(struct RAVEN_PLAYER *pl)
+void player_set_sprite_anim(struct GAME_STATE *game, int animation_id)
 {
-    const struct RAVEN_SPRITE_ANIMATION *anim = &raven_sprite_animations[RAVEN_SPRITE_ANIMATION_ID_BUNNY];
+    const struct RAVEN_SPRITE_ANIMATION *anim = &raven_sprite_animations[animation_id];
+    game->player.sprite = anim->sprite;
+    game->player.anim = anim;
+}
 
-    pl->sprite = anim->sprite;
-    pl->anim = anim;
+void player_init(struct GAME_STATE *game)
+{
+    struct RAVEN_PLAYER *pl = &game->player;
     pl->x = 0;
     pl->y = 0;
     pl->state = PLAYER_STATE_STAND;
@@ -61,11 +68,14 @@ void player_init(struct RAVEN_PLAYER *pl)
     pl->anim_frame = 0;
     pl->shadow_enabled = 0;
 
-    update_sprite_info(pl);
+    update_sprite_info(game);
 }
 
-void player_update(struct RAVEN_PLAYER *pl, struct RAVEN_PLAYER_CONTROL *plc)
+void player_update(struct GAME_STATE *game, struct JOYSTICK *joy)
 {
+    struct RAVEN_PLAYER *pl = &game->player;
+    struct RAVEN_PLAYER_CONTROL *plc = &game->player_control;
+
     //printf("update player: at (%ld,%ld), delta=0x(%lx,%lx)=(%ld,%ld)\n", pl->x, pl->y, plc->dx, plc->dy, plc->dx>>8, plc->dy>>8);
     int dx = plc->dx >> 8;
     int dy = plc->dy >> 8;
@@ -75,10 +85,10 @@ void player_update(struct RAVEN_PLAYER *pl, struct RAVEN_PLAYER_CONTROL *plc)
         .w = pl->anim->collision.w,
         .h = pl->anim->collision.h,
     };
-    int collision = collision_move(&rect, dx, dy);
+    int collision = collision_move(game, &rect, dx, dy);
     if (collision & COLLISION_FLAGS_DOWN) {
         plc->dy = 0;
-        if (JOY_BTN_HELD(&joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
+        if (JOY_BTN_HELD(joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
             pl->state = PLAYER_STATE_WALK;
         } else {
             pl->state = PLAYER_STATE_STAND;
@@ -94,7 +104,7 @@ void player_update(struct RAVEN_PLAYER *pl, struct RAVEN_PLAYER_CONTROL *plc)
         }
     } else if (pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK) {
         int y = rect.y;
-        if (collision_move(&rect, 0, 1) == 0) {
+        if (collision_move(game, &rect, 0, 1) == 0) {
             pl->state = PLAYER_STATE_FALL;
             pl->anim_frame = 0;
         }
@@ -104,23 +114,27 @@ void player_update(struct RAVEN_PLAYER *pl, struct RAVEN_PLAYER_CONTROL *plc)
     pl->x = rect.x;
     pl->y = rect.y;
     pl->anim_frame += pl->anim->loops[pl->anim_loop].frame_adv + 1; // [0-255] -> [1-256]
-    update_sprite_info(pl);
+    update_sprite_info(game);
 }
 
-void player_control_init(struct RAVEN_PLAYER_CONTROL *plc)
+void player_control_init(struct GAME_STATE *game)
 {
+    struct RAVEN_PLAYER_CONTROL *plc = &game->player_control;
     plc->dx = 0;
     plc->dy = 0;
 }
 
-void player_control_update(struct RAVEN_PLAYER_CONTROL *plc, struct RAVEN_PLAYER *pl)
+void player_control_update(struct GAME_STATE *game, struct JOYSTICK *joy)
 {
+    struct RAVEN_PLAYER *pl = &game->player;
+    struct RAVEN_PLAYER_CONTROL *plc = &game->player_control;
+
     // walk
     if (pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK) {
-        if (pl->state != PLAYER_STATE_WALK && JOY_BTN_HELD(&joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
+        if (pl->state != PLAYER_STATE_WALK && JOY_BTN_HELD(joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
             pl->state = PLAYER_STATE_WALK;
             pl->anim_frame = 0;
-        } else if (pl->state != PLAYER_STATE_STAND && ! JOY_BTN_HELD(&joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
+        } else if (pl->state != PLAYER_STATE_STAND && ! JOY_BTN_HELD(joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
             pl->state = PLAYER_STATE_STAND;
             pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_STAND;
             pl->anim_frame = 0;
@@ -138,22 +152,22 @@ void player_control_update(struct RAVEN_PLAYER_CONTROL *plc, struct RAVEN_PLAYER
     }
 
     // change direction
-    if (JOY_BTN_HELD(&joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
-        pl->direction = JOY_BTN_HELD(&joy, JOY_BTN_RIGHT) ? RAVEN_DIR_RIGHT : RAVEN_DIR_LEFT;
+    if (JOY_BTN_HELD(joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
+        pl->direction = JOY_BTN_HELD(joy, JOY_BTN_RIGHT) ? RAVEN_DIR_RIGHT : RAVEN_DIR_LEFT;
     }
 
     // limit x speed
-    if (JOY_BTN_HELD(&joy, JOY_BTN_RIGHT)) {
+    if (JOY_BTN_HELD(joy, JOY_BTN_RIGHT)) {
         plc->dx += DX_ACCEL;
         if (plc->dx >= DX_MAX) plc->dx = DX_MAX;
     }
-    if (JOY_BTN_HELD(&joy, JOY_BTN_LEFT)) {
+    if (JOY_BTN_HELD(joy, JOY_BTN_LEFT)) {
         plc->dx -= DX_ACCEL;
         if (plc->dx <= -DX_MAX) plc->dx = -DX_MAX;
     }
 
     // jump
-    if ((pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK) && JOY_BTN_PRESSED(&joy, JOY_BTN_A)) {
+    if ((pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK) && JOY_BTN_PRESSED(joy, JOY_BTN_A)) {
         plc->dy = DY_JUMP_START;
         pl->state = PLAYER_STATE_JUMP;
         pl->anim_frame = 0;
@@ -161,7 +175,7 @@ void player_control_update(struct RAVEN_PLAYER_CONTROL *plc, struct RAVEN_PLAYER
 
     // hold jump / start fall
     if (pl->state == PLAYER_STATE_JUMP) {
-        if (JOY_BTN_HELD(&joy, JOY_BTN_A) && plc->dy < 0) {
+        if (JOY_BTN_HELD(joy, JOY_BTN_A) && plc->dy < 0) {
             plc->dy += DY_JUMP_HOLD;
         } else {
             pl->state = PLAYER_STATE_FALL;

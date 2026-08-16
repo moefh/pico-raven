@@ -6,8 +6,6 @@
 #include "lib/vga_8bit.h"
 #include "lib/mem.h"
 
-#define TILE_SIZE 16
-
 void draw_room_init_room(struct GAME_STATE *game)
 {
     (void)game;

@@ -16,7 +16,9 @@ struct COLLISION_RECT {
     int16_t h;
 };
 
-void collision_init_frame(uint16_t room_id);
-int collision_move(struct COLLISION_RECT *rect, int dx, int dy);
+struct GAME_STATE;
+
+int collision_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int dx, int dy);
+uint8_t collision_get_room_tile_at(struct GAME_STATE *game, int tx, int ty);
 
 #endif /* COLLISION_H_FILE */

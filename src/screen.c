@@ -11,12 +11,12 @@
 #include "lib/vga_8bit.h"
 #include "lib/vga_font_8bit.h"
 #include "lib/compilation_timestamp.h"
+#include "lib/joystick.h"
 #include "lib/mem.h"
 
 #include "game_data.h"
-#include "joy.h"
 
-static struct MEM_ARENA mem;
+static struct MEM_ARENA draw_frame_arena;
 
 static const uint8_t sprite_shadow_colors[SPRITE_SHADOW_NUM_FRAMES] = {
     0, 1, 2, 3, 4, 5, 6, 7, // red
@@ -57,7 +57,7 @@ int screen_init(void)
         fflush(stdout);
         return -1;
     }
-    mem_init(&mem, scratch, scratch_size);
+    mem_init(&draw_frame_arena, scratch, scratch_size);
 
     font_set_font(&raven_fonts[RAVEN_FONT_ID_6X8]);
     font_set_color(0xff);
@@ -120,26 +120,26 @@ static void draw_perf_history(uint32_t x, uint32_t y)
     }
 }
 
-static void draw_joy_buttons(int y)
+static void draw_joy_buttons(struct JOYSTICK *joy, int y)
 {
     font_align(FONT_ALIGN_LEFT);
-    if (joy.cur & JOY_BTN_UP)    { font_move(10+0*10, y); font_printf("^"); }
-    if (joy.cur & JOY_BTN_DOWN)  { font_move(10+1*10, y); font_printf("V"); }
-    if (joy.cur & JOY_BTN_LEFT)  { font_move(10+2*10, y); font_printf("<-"); }
-    if (joy.cur & JOY_BTN_RIGHT) { font_move(10+3*10, y); font_printf("->"); }
+    if (joy->cur & JOY_BTN_UP)    { font_move(10+0*10, y); font_printf("^"); }
+    if (joy->cur & JOY_BTN_DOWN)  { font_move(10+1*10, y); font_printf("V"); }
+    if (joy->cur & JOY_BTN_LEFT)  { font_move(10+2*10, y); font_printf("<-"); }
+    if (joy->cur & JOY_BTN_RIGHT) { font_move(10+3*10, y); font_printf("->"); }
 
-    if (joy.cur & JOY_BTN_A) { font_move(10+0*12, y+10); font_printf("B"); }
-    if (joy.cur & JOY_BTN_B) { font_move(10+1*12, y+10); font_printf("Y"); }
-    if (joy.cur & JOY_BTN_C) { font_move(10+2*12, y+10); font_printf("A"); }
-    if (joy.cur & JOY_BTN_D) { font_move(10+3*12, y+10); font_printf("X"); }
+    if (joy->cur & JOY_BTN_A) { font_move(10+0*12, y+10); font_printf("B"); }
+    if (joy->cur & JOY_BTN_B) { font_move(10+1*12, y+10); font_printf("Y"); }
+    if (joy->cur & JOY_BTN_C) { font_move(10+2*12, y+10); font_printf("A"); }
+    if (joy->cur & JOY_BTN_D) { font_move(10+3*12, y+10); font_printf("X"); }
 
-    if (joy.cur & JOY_BTN_L1) { font_move(10+0*18, y+20); font_printf("L1"); }
-    if (joy.cur & JOY_BTN_R1) { font_move(10+1*18, y+20); font_printf("R1"); }
-    if (joy.cur & JOY_BTN_L2) { font_move(10+2*18, y+20); font_printf("L2"); }
-    if (joy.cur & JOY_BTN_R2) { font_move(10+3*18, y+20); font_printf("R2"); }
+    if (joy->cur & JOY_BTN_L1) { font_move(10+0*18, y+20); font_printf("L1"); }
+    if (joy->cur & JOY_BTN_R1) { font_move(10+1*18, y+20); font_printf("R1"); }
+    if (joy->cur & JOY_BTN_L2) { font_move(10+2*18, y+20); font_printf("L2"); }
+    if (joy->cur & JOY_BTN_R2) { font_move(10+3*18, y+20); font_printf("R2"); }
 
-    if (joy.cur & JOY_BTN_SELECT) { font_move(10+0*42, y+30); font_printf("SELECT"); }
-    if (joy.cur & JOY_BTN_START)  { font_move(10+1*42, y+30); font_printf("START"); }
+    if (joy->cur & JOY_BTN_SELECT) { font_move(10+0*42, y+30); font_printf("SELECT"); }
+    if (joy->cur & JOY_BTN_START)  { font_move(10+1*42, y+30); font_printf("START"); }
 }
 
 static void draw_player(struct GAME_STATE *game)
@@ -154,7 +154,7 @@ static void draw_player(struct GAME_STATE *game)
 
 static void draw_room(struct GAME_STATE *game)
 {
-    struct DRAW_ROOM_INFO *info = draw_room_init_frame(&mem, game);
+    struct DRAW_ROOM_INFO *info = draw_room_init_frame(&draw_frame_arena, game);
 
     draw_room_bg(info);
     GAME_PERF(game, room_bg_us);
@@ -182,11 +182,11 @@ static void draw_room(struct GAME_STATE *game)
     }
 }
 
-void screen_render(struct GAME_STATE *game)
+void screen_render(struct GAME_STATE *game, struct JOYSTICK *joy)
 {
     int fps = fps_count();
 
-    mem_clear(&mem);
+    mem_clear(&draw_frame_arena);
     //vga_clear_screen(0);
 
     draw_room(game);
@@ -217,7 +217,7 @@ void screen_render(struct GAME_STATE *game)
         }
     }
 
-    draw_joy_buttons(80);
+    draw_joy_buttons(joy, 80);
 
     font_move(10, 160); font_printf("mod number: %d", game->mod.index);
     font_move(10, 170); font_printf("mod volume: %03x", game->mod.volume);

@@ -1,7 +1,37 @@
 #ifndef GAME_H_FILE
 #define GAME_H_FILE
 
-#include "player.h"
+#include <stdint.h>
+#include "game_data.h"
+#include "sprite_shadow.h"
+
+enum PLAYER_STATE {
+    PLAYER_STATE_STAND,
+    PLAYER_STATE_WALK,
+    PLAYER_STATE_JUMP,
+    PLAYER_STATE_FALL,
+};
+
+struct RAVEN_PLAYER_CONTROL {
+    int32_t dx;  // 24.8 fixpoint
+    int32_t dy;
+};
+
+struct RAVEN_PLAYER {
+    const struct VGA_IMAGE *sprite;
+    const struct RAVEN_SPRITE_ANIMATION *anim;
+    int32_t x;
+    int32_t y;
+    uint8_t state;
+    uint8_t direction;
+    uint8_t shadow_enabled;
+    uint8_t anim_loop;
+    uint16_t anim_frame;  // 10.6 fixpoint
+
+    int16_t sprite_x;
+    int16_t sprite_y;
+    uint8_t sprite_frame;
+};
 
 struct GAME_STATE_LED {
     uint8_t frames;
@@ -65,8 +95,10 @@ struct GAME_STATE {
     void (*update_room)(struct GAME_STATE *);
 };
 
-void game_main_loop(void);
-int game_check_player_trigger(uint32_t trigger_type_flags);
+struct JOYSTICK;
+
+void game_main_loop(struct GAME_STATE *game, struct JOYSTICK *joy);
+int game_check_player_trigger(struct GAME_STATE *game, uint32_t trigger_type_flags);
 
 #define GAME_PERF_START(game)           (game)->perf.frame_start_us = time_us_32()
 #define GAME_PERF(game, name)           GAME_PERF_AT((game), name, time_us_32())
