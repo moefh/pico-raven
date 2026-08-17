@@ -162,6 +162,13 @@ static void draw_room(struct GAME_STATE *game)
     draw_player(game);
     GAME_PERF(game, player_us);
 
+    for (int i = 0; i < game->num_enemies; i++) {
+        struct RAVEN_CHARACTER *enemy = &game->enemies[i];
+        vga_image_draw_frame(enemy->sprite, enemy->sprite_frame,
+                             enemy->sprite_x - game->screen_x, enemy->sprite_y - game->screen_y, 1);
+    }
+    GAME_PERF(game, enemies_us);
+
     draw_room_fg(info);
     GAME_PERF(game, room_fg_us);
 
@@ -191,14 +198,16 @@ void screen_render(struct GAME_STATE *game, struct JOYSTICK *joy)
 
     draw_room(game);
 
-    font_align(FONT_ALIGN_LEFT);
-    font_move(10, 10);
-    font_printf("%d fps", fps);
+    if (game->display.show_perf) {
+        font_align(FONT_ALIGN_LEFT);
+        font_move(10, 10);
+        font_printf("%d fps", fps);
 
-    font_move(10, 20); font_printf("pos  %4ld,%-4ld\n", game->player.x, game->player.y);
-    font_move(10, 30); font_printf("vel %5ld,%-5ld\n", game->player_control.dx, game->player_control.dy);
-    font_move(10, 40); font_printf("state %d\n", game->player.state);
-    font_move(10, 50); font_printf("frame %d\n", game->player.anim_frame >> 8);
+        font_move(10, 20); font_printf("pos  %4ld,%-4ld\n", game->player.x, game->player.y);
+        font_move(10, 30); font_printf("vel %5ld,%-5ld\n", game->player_control.dx, game->player_control.dy);
+        font_move(10, 40); font_printf("state %d\n", game->player.state);
+        font_move(10, 50); font_printf("frame %d\n", game->player.anim_frame >> 8);
+    }
 
     update_perf_history(&game->perf);
     if (game->display.show_perf) {
@@ -217,20 +226,22 @@ void screen_render(struct GAME_STATE *game, struct JOYSTICK *joy)
         }
     }
 
-    draw_joy_buttons(joy, 80);
+    if (game->display.show_perf) {
+        draw_joy_buttons(joy, 80);
 
-    font_move(10, 160); font_printf("mod number: %d", game->mod.index);
-    font_move(10, 170); font_printf("mod volume: %03x", game->mod.volume);
-    if (game->display.msg_mod_event_frames_left) {
-        font_move(10, 180); font_printf("mod event: %d, %d", game->mod.event_chan, game->mod.event_data);
+        font_move(10, 160); font_printf("mod number: %d", game->mod.index);
+        font_move(10, 170); font_printf("mod volume: %03x", game->mod.volume);
+        if (game->display.msg_mod_event_frames_left) {
+            font_move(10, 180); font_printf("mod event: %d, %d", game->mod.event_chan, game->mod.event_data);
+        }
+        if (game->display.msg_save_frames_left) {
+            font_move(10, 190); font_printf("%s", game->display.save_success ? "game saved" : "error saving game");
+        }
+        if (game->display.msg_load_frames_left) {
+            font_move(10, 200); font_printf("%s", game->display.load_success ? "game loaded" : "error loading game");
+        }
+        font_move(10, 226); font_printf("version %llx", get_compilation_timestamp());
     }
-    if (game->display.msg_save_frames_left) {
-        font_move(10, 190); font_printf("%s", game->display.save_success ? "game saved" : "error saving game");
-    }
-    if (game->display.msg_load_frames_left) {
-        font_move(10, 200); font_printf("%s", game->display.load_success ? "game loaded" : "error loading game");
-    }
-    font_move(10, 226); font_printf("version %llx", get_compilation_timestamp());
 
     GAME_PERF(game, render_us);
     vga_swap_buffers(true);

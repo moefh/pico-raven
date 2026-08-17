@@ -4,22 +4,26 @@
 
 ADD_ROOM_SCRIPT(west__buntown_gate);
 
-static void west__buntown_gate_init(uint32_t room_id, struct GAME_STATE *game)
+static void init_room(uint32_t room_id, struct GAME_STATE *game)
 {
-    printf("init room: id=%d, %p\n", (int)room_id, game);
-
     const struct RAVEN_ROOM *room = &raven_rooms[room_id];
     int num_triggers = room->num_triggers;
     for (int t = 0; t < num_triggers; t++) {
         const struct RAVEN_ROOM_TRIGGER_INFO *tr = &room->triggers[t];
         if (tr->type == RAVEN_ROOM_TRIGGER_TYPE_PLAYER_SPAWN) {
-            printf("spawning player\n");
             game->player.x = tr->x;
-            game->player.y = tr->y + 64 - game->player.anim->collision.h;
+            game->player.y = tr->y + 4*TILE_SIZE - game->player.anim->collision.h;
             game->player.direction = tr->player_spawn.direction;
             game->screen_x = 0;
             game->screen_y = 0;
             break;
         }
     }
+
+    game_spawn_room_enemies(game);
+}
+
+static void update_room(struct GAME_STATE *game)
+{
+    game_update_room_enemies(game);
 }

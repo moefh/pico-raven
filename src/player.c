@@ -17,7 +17,7 @@
 
 static void update_sprite_info(struct GAME_STATE *game)
 {
-    struct RAVEN_PLAYER *pl = &game->player;
+    struct RAVEN_CHARACTER *pl = &game->player;
 
     switch (pl->state) {
     case PLAYER_STATE_STAND: pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_STAND; break;
@@ -59,12 +59,11 @@ void player_set_sprite_anim(struct GAME_STATE *game, int animation_id)
 
 void player_init(struct GAME_STATE *game)
 {
-    struct RAVEN_PLAYER *pl = &game->player;
+    struct RAVEN_CHARACTER *pl = &game->player;
     pl->x = 0;
     pl->y = 0;
     pl->state = PLAYER_STATE_STAND;
     pl->direction = RAVEN_DIR_RIGHT;
-    pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_STAND;
     pl->anim_frame = 0;
     pl->shadow_enabled = 0;
 
@@ -73,7 +72,7 @@ void player_init(struct GAME_STATE *game)
 
 void player_update(struct GAME_STATE *game, struct JOYSTICK *joy)
 {
-    struct RAVEN_PLAYER *pl = &game->player;
+    struct RAVEN_CHARACTER *pl = &game->player;
     struct RAVEN_PLAYER_CONTROL *plc = &game->player_control;
 
     //printf("update player: at (%ld,%ld), delta=0x(%lx,%lx)=(%ld,%ld)\n", pl->x, pl->y, plc->dx, plc->dy, plc->dx>>8, plc->dy>>8);
@@ -126,7 +125,7 @@ void player_control_init(struct GAME_STATE *game)
 
 void player_control_update(struct GAME_STATE *game, struct JOYSTICK *joy)
 {
-    struct RAVEN_PLAYER *pl = &game->player;
+    struct RAVEN_CHARACTER *pl = &game->player;
     struct RAVEN_PLAYER_CONTROL *plc = &game->player_control;
 
     // walk

@@ -173,16 +173,18 @@ struct RAVEN_ROOM_TRIGGER_INFO {
             uint8_t direction;
         } player_spawn;
         struct {
-             const struct RAVEN_ROOM *dest_room;
-             uint16_t dest_trigger_id;
+            const struct RAVEN_ROOM *dest_room;
+            uint16_t dest_trigger_id;
         } door;
         struct {
-             const struct RAVEN_SPRITE_ANIMATION *animation;
+            const struct RAVEN_SPRITE_ANIMATION *animation;
+            uint16_t enemy_type;
+            uint8_t direction;
         } enemy_spawn;
         struct {
-             uint16_t width;
-             uint16_t height;
-             uint16_t type;
+            uint16_t width;
+            uint16_t height;
+            uint16_t type;
         } trap;
     };
 };

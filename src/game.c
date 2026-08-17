@@ -12,6 +12,7 @@
 #include "core_msg.h"
 #include "game_data.h"
 #include "player.h"
+#include "enemy.h"
 #include "collision.h"
 #include "screen.h"
 #include "sprite_shadow.h"
@@ -48,6 +49,25 @@ int game_check_player_trigger(struct GAME_STATE *game, uint32_t trigger_type_fla
         }
     }
     return -1;
+}
+
+void game_spawn_room_enemies(struct GAME_STATE *game)
+{
+    const struct RAVEN_ROOM *room = &raven_rooms[game->room_id];
+    for (int tr_index = 0; tr_index < room->num_triggers; tr_index++) {
+        const struct RAVEN_ROOM_TRIGGER_INFO *tr = &room->triggers[tr_index];
+        if (tr->type == RAVEN_ROOM_TRIGGER_TYPE_ENEMY_SPAWN && game->num_enemies < GAME_MAX_ENEMIES) {
+            int enemy_index = game->num_enemies++;
+            enemy_init(game, enemy_index, tr);
+        }
+    }
+}
+
+void game_update_room_enemies(struct GAME_STATE *game)
+{
+    for (int i = 0; i < game->num_enemies; i++) {
+        enemy_update(game, i);
+    }
 }
 
 static void screen_follow_player(struct GAME_STATE *game)
@@ -124,6 +144,7 @@ static void load_room(struct GAME_STATE *game, uint32_t room_id)
 
     // setup room
     draw_room_init_room(game);
+    game->num_enemies = 0;
     game->room_doors_enabled = 1;
     const struct RAVEN_ROOM_SCRIPT *script_table = raven_room_script_table[room_id];
     if (script_table) {
@@ -139,7 +160,7 @@ static void game_init(struct GAME_STATE *game)
     game->mod.index = RAVEN_MOD_ID_BWV_106;
     game->mod.volume = 0x40;
 
-    game->display.show_perf = 1;
+    game->display.show_perf = 0;
     game->display.msg_load_frames_left = 0;
     game->display.msg_save_frames_left = 0;
     game->display.msg_mod_event_frames_left = 0;

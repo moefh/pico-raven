@@ -20,6 +20,7 @@ add_executable(${PROJECT_NAME}
     src/game_data.c
     src/savegame.c
     src/player.c
+    src/enemy.c
     src/draw_room.c
     src/sprite_shadow.c
     src/rooms/west__buntown_gate.c

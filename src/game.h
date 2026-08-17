@@ -5,6 +5,15 @@
 #include "game_data.h"
 #include "sprite_shadow.h"
 
+#define GAME_MAX_ENEMIES  32
+
+enum ENEMY_STATE {
+    ENEMY_STATE_STAND,
+    ENEMY_STATE_WALK,
+    ENEMY_STATE_JUMP,
+    ENEMY_STATE_FALL,
+};
+
 enum PLAYER_STATE {
     PLAYER_STATE_STAND,
     PLAYER_STATE_WALK,
@@ -17,7 +26,7 @@ struct RAVEN_PLAYER_CONTROL {
     int32_t dy;
 };
 
-struct RAVEN_PLAYER {
+struct RAVEN_CHARACTER {
     const struct VGA_IMAGE *sprite;
     const struct RAVEN_SPRITE_ANIMATION *anim;
     int32_t x;
@@ -26,7 +35,7 @@ struct RAVEN_PLAYER {
     uint8_t direction;
     uint8_t shadow_enabled;
     uint8_t anim_loop;
-    uint16_t anim_frame;  // 10.6 fixpoint
+    uint16_t anim_frame;  // 8.8 fixpoint
 
     int16_t sprite_x;
     int16_t sprite_y;
@@ -52,6 +61,7 @@ struct GAME_STATE_PERF {
     uint32_t update_us;
     uint32_t room_fg_us;
     uint32_t player_us;
+    uint32_t enemies_us;
     uint32_t room_bg_us;
     uint32_t render_us;
     uint32_t vsync_us;
@@ -80,16 +90,19 @@ struct GAME_STATE {
     struct GAME_STATE_PERF perf;
     struct GAME_STATE_DISPLAY display;
 
-    struct RAVEN_PLAYER player;
+    struct RAVEN_CHARACTER player;
     struct RAVEN_PLAYER_CONTROL player_control;
+
+    int32_t num_enemies;
+    struct RAVEN_CHARACTER enemies[GAME_MAX_ENEMIES];
 
     struct GAME_STATE_ROOM_TRANSITION room_transition;
 
-    int room_id;
-    int room_w;
-    int room_h;
-    int screen_x;
-    int screen_y;
+    int32_t room_id;
+    int32_t room_w;
+    int32_t room_h;
+    int32_t screen_x;
+    int32_t screen_y;
 
     uint8_t room_doors_enabled;
     void (*update_room)(struct GAME_STATE *);
@@ -99,6 +112,8 @@ struct JOYSTICK;
 
 void game_main_loop(struct GAME_STATE *game, struct JOYSTICK *joy);
 int game_check_player_trigger(struct GAME_STATE *game, uint32_t trigger_type_flags);
+void game_spawn_room_enemies(struct GAME_STATE *game);
+void game_update_room_enemies(struct GAME_STATE *game);
 
 #define GAME_PERF_START(game)           (game)->perf.frame_start_us = time_us_32()
 #define GAME_PERF(game, name)           GAME_PERF_AT((game), name, time_us_32())
