@@ -174,11 +174,11 @@ static void load_game(struct GAME_STATE *game)
         memcpy(game, &tmp_game, sizeof(struct GAME_STATE));
         game->player.state = PLAYER_STATE_STAND;
         game->player.anim_frame = 0;
-        screen_follow_player(game);
         player_control_init(game);
         run_state.display.msg_mod_event_frames_left = 0;
         run_state.display.msg_save_frames_left = 0;
         msg_mod_play(&raven_mods[run_state.mod.index], run_state.mod.volume>>4, true);
+        screen_follow_player(game);
     }
     run_state.display.load_success = (ret == 0);
     run_state.display.msg_load_frames_left = 180;
@@ -271,6 +271,7 @@ static void update_game_state(struct GAME_STATE *game, struct JOYSTICK *joy)
 
 static void process_mod_event(struct GAME_STATE *game, uint8_t chan, uint8_t event)
 {
+    (void)game;
     run_state.mod.event_chan = chan;
     run_state.mod.event_data = event;
     run_state.display.msg_mod_event_frames_left = 60;

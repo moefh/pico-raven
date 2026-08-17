@@ -17,6 +17,7 @@ enum ENEMY_ANIM_LOOP {
     ENEMY_ANIM_LOOP_JUMP,
     ENEMY_ANIM_LOOP_FALL,
     ENEMY_ANIM_LOOP_LOOK,
+    ENEMY_ANIM_LOOP_BLINK,
 };
 
 static void init_walker(struct GAME_STATE *game, int enemy_index)
@@ -58,7 +59,7 @@ static void update_walker(struct GAME_STATE *game, int enemy_index)
 static void init_chiller(struct GAME_STATE *game, int enemy_index)
 {
     struct RAVEN_CHARACTER *enemy = &game->enemies[enemy_index];
-    enemy->state = ENEMY_STATE_STAND;
+    enemy->state = ENEMY_STATE_LOOK;
 
     struct RAVEN_ENEMY_CONTROL *control = &game->enemies_control[enemy_index];
     control->ai_state = 0;
@@ -70,39 +71,55 @@ static void update_chiller(struct GAME_STATE *game, int enemy_index)
     struct RAVEN_CHARACTER *enemy = &game->enemies[enemy_index];
     struct RAVEN_ENEMY_CONTROL *control = &game->enemies_control[enemy_index];
 
-    if (enemy->state == ENEMY_STATE_WALK) {
-        int dx = (enemy->direction == RAVEN_DIR_LEFT) ? -1 : 1;
-        struct COLLISION_RECT rect = {
-            .x = enemy->x,
-            .y = enemy->y,
-            .w = enemy->anim->collision.w,
-            .h = enemy->anim->collision.h,
-        };
-        if (collision_move(game, &rect, 0, 1) == 0) {
-            enemy->x -= dx;
-            enemy->direction = ! enemy->direction;
-            enemy->anim_frame = 0;
-            control->wait = 120;
-        } else {
-            int collision = collision_move(game, &rect, dx, 0);
-            if (collision != 0 && collision != COLLISION_FLAGS_RAMP) {
+    const struct RAVEN_SPRITE_ANIMATION_LOOP *loop = &enemy->anim->loops[enemy->anim_loop];
+    int at_anim_loop_end = (((enemy->anim_frame + loop->frame_adv + 1) >> 8) >= loop->length);
+
+    switch (enemy->state) {
+    case ENEMY_STATE_WALK:
+        {
+            int dx = (enemy->direction == RAVEN_DIR_LEFT) ? -1 : 1;
+            struct COLLISION_RECT rect = {
+                .x = enemy->x,
+                .y = enemy->y,
+                .w = enemy->anim->collision.w,
+                .h = enemy->anim->collision.h,
+            };
+            if (collision_move(game, &rect, 0, 1) == 0) {
+                enemy->x -= dx;
                 enemy->direction = ! enemy->direction;
                 enemy->anim_frame = 0;
                 control->wait = 120;
+            } else {
+                int collision = collision_move(game, &rect, dx, 0);
+                if (collision != 0 && collision != COLLISION_FLAGS_RAMP) {
+                    enemy->direction = ! enemy->direction;
+                    enemy->anim_frame = 0;
+                    control->wait = 120;
+                }
+                enemy->x = rect.x;
+                enemy->y = rect.y;
             }
-            enemy->x = rect.x;
-            enemy->y = rect.y;
+            if (control->wait-- == 0) {
+                enemy->state = ENEMY_STATE_BLINK;
+                enemy->anim_frame = 0;
+            }
         }
-    }
+        break;
 
-    if (control->wait-- == 0) {
-        if (enemy->state == ENEMY_STATE_WALK) {
-            enemy->state = ENEMY_STATE_STAND;
-            control->wait = 300;
-        } else {
+    case ENEMY_STATE_BLINK:
+        if (at_anim_loop_end) {
+            enemy->state = ENEMY_STATE_LOOK;
+            enemy->anim_frame = 0;
+        }
+    break;
+
+    case ENEMY_STATE_LOOK:
+        if (at_anim_loop_end) {
             enemy->state = ENEMY_STATE_WALK;
+            enemy->anim_frame = 0;
             control->wait = 120;
         }
+        break;
     }
 }
 
@@ -113,13 +130,15 @@ static void update_sprite_info(struct RAVEN_CHARACTER *enemy)
     case ENEMY_STATE_WALK:  enemy->anim_loop = ENEMY_ANIM_LOOP_RUN; break;
     case ENEMY_STATE_JUMP:  enemy->anim_loop = ENEMY_ANIM_LOOP_JUMP; break;
     case ENEMY_STATE_FALL:  enemy->anim_loop = ENEMY_ANIM_LOOP_FALL; break;
+    case ENEMY_STATE_LOOK:  enemy->anim_loop = ENEMY_ANIM_LOOP_LOOK; break;
+    case ENEMY_STATE_BLINK:  enemy->anim_loop = ENEMY_ANIM_LOOP_BLINK; break;
     }
     const struct RAVEN_SPRITE_ANIMATION_LOOP *loop = &enemy->anim->loops[enemy->anim_loop];
     int loop_frame = enemy->anim_frame >> 8;
     if (loop_frame >= loop->length) {
         if (loop->dont_loop) {
             loop_frame = loop->length - 1;
-            enemy->anim_frame = (loop_frame) << 8;
+            enemy->anim_frame = loop_frame << 8;
         } else {
             loop_frame = 0;
             enemy->anim_frame &= 0xff;
