@@ -3,6 +3,7 @@
 #include "draw_room.h"
 
 #include "game.h"
+#include "run_state.h"
 #include "lib/vga_8bit.h"
 #include "lib/mem.h"
 
@@ -19,8 +20,8 @@ struct DRAW_ROOM_INFO *draw_room_init_frame(struct MEM_ARENA *mem, struct GAME_S
     for (int i = 0; i < room->num_maps; i++) {
         const struct RAVEN_ROOM_MAP_INFO *map_info = &room->maps[i];
 
-        int map_x = game->screen_x - map_info->x * TILE_SIZE;
-        int map_y = game->screen_y - map_info->y * TILE_SIZE;
+        int map_x = run_state.screen_x - map_info->x * TILE_SIZE;
+        int map_y = run_state.screen_y - map_info->y * TILE_SIZE;
 
         if (map_x + vga_screen.width <= 0  || map_x >= map_info->map->w * TILE_SIZE ||
             map_y + vga_screen.height <= 0 || map_y >= map_info->map->h * TILE_SIZE)

@@ -14,6 +14,7 @@ add_executable(${PROJECT_NAME}
     src/main.c
     src/screen.c
     src/game.c
+    src/run_state.c
     src/collision.c
     src/core_msg.c
     src/core1_main.c

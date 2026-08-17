@@ -14,8 +14,6 @@ static void init_room(uint32_t room_id, struct GAME_STATE *game)
             game->player.x = tr->x;
             game->player.y = tr->y + 4*TILE_SIZE - game->player.anim->collision.h;
             game->player.direction = tr->player_spawn.direction;
-            game->screen_x = 0;
-            game->screen_y = 0;
             break;
         }
     }

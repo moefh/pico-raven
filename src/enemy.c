@@ -6,12 +6,105 @@
 #include "lib/joystick.h"
 #include "lib/mem.h"
 
+enum ENEMY_TYPE {
+    ENEMY_TYPE_WALKER,
+    ENEMY_TYPE_CHILLER,
+};
+
 enum ENEMY_ANIM_LOOP {
     ENEMY_ANIM_LOOP_STAND,
     ENEMY_ANIM_LOOP_RUN,
     ENEMY_ANIM_LOOP_JUMP,
     ENEMY_ANIM_LOOP_FALL,
+    ENEMY_ANIM_LOOP_LOOK,
 };
+
+static void init_walker(struct GAME_STATE *game, int enemy_index)
+{
+    struct RAVEN_CHARACTER *enemy = &game->enemies[enemy_index];
+    enemy->state = ENEMY_STATE_WALK;
+
+    struct RAVEN_ENEMY_CONTROL *control = &game->enemies_control[enemy_index];
+    control->ai_state = 0;
+    control->wait = 0;
+}
+
+static void update_walker(struct GAME_STATE *game, int enemy_index)
+{
+    struct RAVEN_CHARACTER *enemy = &game->enemies[enemy_index];
+
+    int dx = (enemy->direction == RAVEN_DIR_LEFT) ? -1 : 1;
+    struct COLLISION_RECT rect = {
+        .x = enemy->x,
+        .y = enemy->y,
+        .w = enemy->anim->collision.w,
+        .h = enemy->anim->collision.h,
+    };
+    if (collision_move(game, &rect, 0, 1) == 0) {
+        enemy->x -= dx;
+        enemy->direction = ! enemy->direction;
+        enemy->anim_frame = 0;
+    } else {
+        int collision = collision_move(game, &rect, dx, 0);
+        if (collision != 0 && collision != COLLISION_FLAGS_RAMP) {
+            enemy->direction = ! enemy->direction;
+            enemy->anim_frame = 0;
+        }
+        enemy->x = rect.x;
+        enemy->y = rect.y;
+    }
+}
+
+static void init_chiller(struct GAME_STATE *game, int enemy_index)
+{
+    struct RAVEN_CHARACTER *enemy = &game->enemies[enemy_index];
+    enemy->state = ENEMY_STATE_STAND;
+
+    struct RAVEN_ENEMY_CONTROL *control = &game->enemies_control[enemy_index];
+    control->ai_state = 0;
+    control->wait = 0;
+}
+
+static void update_chiller(struct GAME_STATE *game, int enemy_index)
+{
+    struct RAVEN_CHARACTER *enemy = &game->enemies[enemy_index];
+    struct RAVEN_ENEMY_CONTROL *control = &game->enemies_control[enemy_index];
+
+    if (enemy->state == ENEMY_STATE_WALK) {
+        int dx = (enemy->direction == RAVEN_DIR_LEFT) ? -1 : 1;
+        struct COLLISION_RECT rect = {
+            .x = enemy->x,
+            .y = enemy->y,
+            .w = enemy->anim->collision.w,
+            .h = enemy->anim->collision.h,
+        };
+        if (collision_move(game, &rect, 0, 1) == 0) {
+            enemy->x -= dx;
+            enemy->direction = ! enemy->direction;
+            enemy->anim_frame = 0;
+            control->wait = 120;
+        } else {
+            int collision = collision_move(game, &rect, dx, 0);
+            if (collision != 0 && collision != COLLISION_FLAGS_RAMP) {
+                enemy->direction = ! enemy->direction;
+                enemy->anim_frame = 0;
+                control->wait = 120;
+            }
+            enemy->x = rect.x;
+            enemy->y = rect.y;
+        }
+    }
+
+    if (control->wait-- == 0) {
+        if (enemy->state == ENEMY_STATE_WALK) {
+            enemy->state = ENEMY_STATE_STAND;
+            control->wait = 300;
+        } else {
+            enemy->state = ENEMY_STATE_WALK;
+            control->wait = 120;
+        }
+    }
+}
 
 static void update_sprite_info(struct RAVEN_CHARACTER *enemy)
 {
@@ -50,10 +143,21 @@ void enemy_init(struct GAME_STATE *game, int enemy_index, const struct RAVEN_ROO
     enemy->sprite = enemy->anim->sprite;
     enemy->x = spawn->x;
     enemy->y = spawn->y;
-    enemy->state = ENEMY_STATE_WALK;
+    enemy->state = ENEMY_STATE_STAND;
     enemy->direction = spawn->enemy_spawn.direction;
     enemy->anim_frame = 0;
     enemy->shadow_enabled = 0;
+
+    struct RAVEN_ENEMY_CONTROL *control = &game->enemies_control[enemy_index];
+    control->enemy_type = spawn->enemy_spawn.enemy_type;
+    switch (control->enemy_type) {
+    case ENEMY_TYPE_WALKER: init_walker(game, enemy_index); break;
+    case ENEMY_TYPE_CHILLER: init_chiller(game, enemy_index); break;
+    default:
+        control->ai_state = 0;
+        control->wait = 0;
+        break;
+    }
 
     update_sprite_info(enemy);
 }
@@ -61,26 +165,11 @@ void enemy_init(struct GAME_STATE *game, int enemy_index, const struct RAVEN_ROO
 void enemy_update(struct GAME_STATE *game, int enemy_index)
 {
     struct RAVEN_CHARACTER *enemy = &game->enemies[enemy_index];
+    struct RAVEN_ENEMY_CONTROL *control = &game->enemies_control[enemy_index];
 
-    int dx = (enemy->direction == RAVEN_DIR_LEFT) ? -1 : 1;
-    struct COLLISION_RECT rect = {
-        .x = enemy->x,
-        .y = enemy->y,
-        .w = enemy->anim->collision.w,
-        .h = enemy->anim->collision.h,
-    };
-    if (collision_move(game, &rect, 0, 1) == 0) {
-        enemy->x -= dx;
-        enemy->direction = 1 - enemy->direction;
-        enemy->anim_frame = 0;
-    } else {
-        int collision = collision_move(game, &rect, dx, 0);
-        if (collision != 0 && collision != COLLISION_FLAGS_RAMP) {
-            enemy->direction = 1 - enemy->direction;
-            enemy->anim_frame = 0;
-        }
-        enemy->x = rect.x;
-        enemy->y = rect.y;
+    switch (control->enemy_type) {
+    case ENEMY_TYPE_WALKER: update_walker(game, enemy_index); break;
+    case ENEMY_TYPE_CHILLER: update_chiller(game, enemy_index); break;
     }
 
     enemy->anim_frame += enemy->anim->loops[enemy->anim_loop].frame_adv + 1; // [0-255] -> [1-256]

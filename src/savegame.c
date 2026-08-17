@@ -136,26 +136,20 @@ static int deserialize_game(struct READ_SAVE_DATA *save, struct GAME_STATE *game
     read_bytes(save, magic, 4);
     if (memcmp(magic, savegame_magic, 4) != 0) return 1;
 
+    game->room_id = read_u16(save);
     game->player.x = read_u32(save);
     game->player.y = read_u32(save);
     game->player.direction = read_u8(save);
-    game->screen_x = read_u32(save);
-    game->screen_y = read_u32(save);
-    game->mod.index = read_u16(save);
-    game->mod.volume = read_u16(save);
     return save->error;
 }
 
 static int serialize_game(struct WRITE_SAVE_DATA *save, const struct GAME_STATE *game)
 {
     write_bytes(save, savegame_magic, 4);
+    write_u16(save, game->room_id);
     write_u32(save, game->player.x);
     write_u32(save, game->player.y);
     write_u8(save, game->player.direction);
-    write_u32(save, game->screen_x);
-    write_u32(save, game->screen_y);
-    write_u16(save, game->mod.index);
-    write_u16(save, game->mod.volume);
     return save->error;
 }
 

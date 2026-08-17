@@ -11,6 +11,7 @@
 #include "config.h"
 #include "core_msg.h"
 #include "game_data.h"
+#include "run_state.h"
 #include "player.h"
 #include "enemy.h"
 #include "collision.h"
@@ -73,12 +74,12 @@ void game_update_room_enemies(struct GAME_STATE *game)
 static void screen_follow_player(struct GAME_STATE *game)
 {
     // TODO: add slack
-    game->screen_x = game->player.x + game->player.sprite->width/2 - 160;
-    game->screen_y = game->player.y + game->player.sprite->height/2 - 120;
-    if (game->screen_x < 0) game->screen_x = 0;
-    if (game->screen_y < 0) game->screen_y = 0;
-    if (game->screen_x >= game->room_w - vga_screen.width) game->screen_x = game->room_w - vga_screen.width;
-    if (game->screen_y >= game->room_h - vga_screen.height) game->screen_y = game->room_h - vga_screen.height;
+    run_state.screen_x = game->player.x + game->player.sprite->width/2 - 160;
+    run_state.screen_y = game->player.y + game->player.sprite->height/2 - 120;
+    if (run_state.screen_x < 0) run_state.screen_x = 0;
+    if (run_state.screen_y < 0) run_state.screen_y = 0;
+    if (run_state.screen_x >= run_state.room_w - vga_screen.width) run_state.screen_x = run_state.room_w - vga_screen.width;
+    if (run_state.screen_y >= run_state.room_h - vga_screen.height) run_state.screen_y = run_state.room_h - vga_screen.height;
 }
 
 static int place_player_at_door_exit(struct GAME_STATE *game, int32_t door_trigger_id)
@@ -129,13 +130,13 @@ static void load_room(struct GAME_STATE *game, uint32_t room_id)
     game->room_id = room_id;
 
     // calc room width
-    game->room_w = 0;
-    game->room_h = 0;
+    run_state.room_w = 0;
+    run_state.room_h = 0;
     for (int i = 0; i < room->num_maps; i++) {
         int w = (room->maps[i].x + room->maps[i].map->w) * TILE_SIZE;
         int h = (room->maps[i].y + room->maps[i].map->h) * TILE_SIZE;
-        if (game->room_w < w) game->room_w = w;
-        if (game->room_h < h) game->room_h = h;
+        if (run_state.room_w < w) run_state.room_w = w;
+        if (run_state.room_h < h) run_state.room_h = h;
     }
 
     // setup player
@@ -145,26 +146,20 @@ static void load_room(struct GAME_STATE *game, uint32_t room_id)
     // setup room
     draw_room_init_room(game);
     game->num_enemies = 0;
-    game->room_doors_enabled = 1;
+    run_state.room_doors_enabled = 1;
     const struct RAVEN_ROOM_SCRIPT *script_table = raven_room_script_table[room_id];
     if (script_table) {
         script_table->init(room_id, game);
-        game->update_room = script_table->update;
+        run_state.update_room = script_table->update;
     } else {
-        game->update_room = NULL;
+        run_state.update_room = NULL;
     }
+
+    screen_follow_player(game);
 }
 
 static void game_init(struct GAME_STATE *game)
 {
-    game->mod.index = RAVEN_MOD_ID_BWV_106;
-    game->mod.volume = 0x40;
-
-    game->display.show_perf = 0;
-    game->display.msg_load_frames_left = 0;
-    game->display.msg_save_frames_left = 0;
-    game->display.msg_mod_event_frames_left = 0;
-
     player_set_sprite_anim(game, RAVEN_SPRITE_ANIMATION_ID_BUNNY);
     load_room(game, RAVEN_ROOM_ID_WEST__BUNTOWN_GATE);
 }
@@ -179,40 +174,41 @@ static void load_game(struct GAME_STATE *game)
         memcpy(game, &tmp_game, sizeof(struct GAME_STATE));
         game->player.state = PLAYER_STATE_STAND;
         game->player.anim_frame = 0;
+        screen_follow_player(game);
         player_control_init(game);
-        game->display.msg_mod_event_frames_left = 0;
-        game->display.msg_save_frames_left = 0;
-        msg_mod_play(&raven_mods[game->mod.index], game->mod.volume>>4, true);
+        run_state.display.msg_mod_event_frames_left = 0;
+        run_state.display.msg_save_frames_left = 0;
+        msg_mod_play(&raven_mods[run_state.mod.index], run_state.mod.volume>>4, true);
     }
-    game->display.load_success = (ret == 0);
-    game->display.msg_load_frames_left = 180;
+    run_state.display.load_success = (ret == 0);
+    run_state.display.msg_load_frames_left = 180;
 }
 
 static void save_game(struct GAME_STATE *game)
 {
     int ret = savegame_write(game, 0);
-    game->display.save_success = (ret == 0);
-    game->display.msg_save_frames_left = 180;
-    game->display.msg_load_frames_left = 0;
+    run_state.display.save_success = (ret == 0);
+    run_state.display.msg_save_frames_left = 180;
+    run_state.display.msg_load_frames_left = 0;
 }
 
 static void process_joy_input(struct GAME_STATE *game, struct JOYSTICK *joy)
 {
     if (JOY_BTN_HELD(joy, JOY_BTN_L2)) {
-        game->mod.volume = (game->mod.volume > 1) ? game->mod.volume - 1 : 0;
-        msg_mod_set_volume(game->mod.volume>>4);
+        run_state.mod.volume = (run_state.mod.volume > 1) ? run_state.mod.volume - 1 : 0;
+        msg_mod_set_volume(run_state.mod.volume>>4);
     }
     if (JOY_BTN_HELD(joy, JOY_BTN_R2)) {
-        game->mod.volume = (game->mod.volume < 0x100) ? game->mod.volume + 1 : 0x100;
-        msg_mod_set_volume(game->mod.volume>>4);
+        run_state.mod.volume = (run_state.mod.volume < 0x100) ? run_state.mod.volume + 1 : 0x100;
+        msg_mod_set_volume(run_state.mod.volume>>4);
     }
     if (JOY_BTN_PRESSED(joy, JOY_BTN_L1)) {
-        game->mod.index = (game->mod.index-1+RAVEN_MOD_COUNT) % RAVEN_MOD_COUNT;
-        msg_mod_play(&raven_mods[game->mod.index], game->mod.volume>>4, true);
+        run_state.mod.index = (run_state.mod.index-1+RAVEN_MOD_COUNT) % RAVEN_MOD_COUNT;
+        msg_mod_play(&raven_mods[run_state.mod.index], run_state.mod.volume>>4, true);
     }
     if (JOY_BTN_PRESSED(joy, JOY_BTN_R1)) {
-        game->mod.index = (game->mod.index+1) % RAVEN_MOD_COUNT;
-        msg_mod_play(&raven_mods[game->mod.index], game->mod.volume>>4, true);
+        run_state.mod.index = (run_state.mod.index+1) % RAVEN_MOD_COUNT;
+        msg_mod_play(&raven_mods[run_state.mod.index], run_state.mod.volume>>4, true);
     }
     if (JOY_BTN_PRESSED(joy, JOY_BTN_B)) {
         game->player.shadow_enabled = 1 - game->player.shadow_enabled;
@@ -224,7 +220,7 @@ static void process_joy_input(struct GAME_STATE *game, struct JOYSTICK *joy)
         msg_sfx_play_once(0, &raven_sfxs[0], 0x10, 0x3<<10);
     }
     if (JOY_BTN_PRESSED(joy, JOY_BTN_D)) {
-        game->display.show_perf = (game->display.show_perf + 1) % 3;
+        run_state.display.show_perf = (run_state.display.show_perf + 1) % 3;
     }
 
     if (JOY_BTN_PRESSED(joy, JOY_BTN_START)) {
@@ -241,43 +237,43 @@ static void process_joy_input(struct GAME_STATE *game, struct JOYSTICK *joy)
 static void update_game_state(struct GAME_STATE *game, struct JOYSTICK *joy)
 {
     // blink LED
-    if (game->led.frames-- <= 0) {
-        game->led.frames = 15;
-        game->led.state = !game->led.state;
-        gpio_put(LED_PIN, game->led.state);
+    if (run_state.led.frames-- <= 0) {
+        run_state.led.frames = 15;
+        run_state.led.state = !run_state.led.state;
+        gpio_put(LED_PIN, run_state.led.state);
     }
 
     // advance message display timers
-    if (game->display.msg_mod_event_frames_left > 0) game->display.msg_mod_event_frames_left--;
-    if (game->display.msg_load_frames_left > 0) game->display.msg_load_frames_left--;
-    if (game->display.msg_save_frames_left > 0) game->display.msg_save_frames_left--;
+    if (run_state.display.msg_mod_event_frames_left > 0) run_state.display.msg_mod_event_frames_left--;
+    if (run_state.display.msg_load_frames_left > 0) run_state.display.msg_load_frames_left--;
+    if (run_state.display.msg_save_frames_left > 0) run_state.display.msg_save_frames_left--;
 
     // update character
     player_update(game, joy);
     screen_follow_player(game);
 
     // update room
-    if (game->room_doors_enabled) {
+    if (run_state.room_doors_enabled) {
         int door_index = game_check_player_trigger(game, 1<<RAVEN_ROOM_TRIGGER_TYPE_DOOR);
         if (door_index >= 0) {
             const struct RAVEN_ROOM_TRIGGER_INFO *door = &raven_rooms[game->room_id].triggers[door_index];
-            game->room_transition.src_room_id = game->room_id;
-            game->room_transition.src_door_trigger_id = door->trigger_id;
-            game->room_transition.dst_room_id = (uint16_t) (door->door.dest_room - raven_rooms);
-            game->room_transition.dst_door_trigger_id = door->door.dest_trigger_id;
-            game->room_transition.enabled = true;
+            run_state.room_transition.src_room_id = game->room_id;
+            run_state.room_transition.src_door_trigger_id = door->trigger_id;
+            run_state.room_transition.dst_room_id = (uint16_t) (door->door.dest_room - raven_rooms);
+            run_state.room_transition.dst_door_trigger_id = door->door.dest_trigger_id;
+            run_state.room_transition.enabled = true;
         }
     }
-    if (game->update_room) {
-        game->update_room(game);
+    if (run_state.update_room) {
+        run_state.update_room(game);
     }
 }
 
 static void process_mod_event(struct GAME_STATE *game, uint8_t chan, uint8_t event)
 {
-    game->mod.event_chan = chan;
-    game->mod.event_data = event;
-    game->display.msg_mod_event_frames_left = 60;
+    run_state.mod.event_chan = chan;
+    run_state.mod.event_data = event;
+    run_state.display.msg_mod_event_frames_left = 60;
 }
 
 static void process_core_messages(struct GAME_STATE *game)
@@ -298,17 +294,18 @@ static void process_core_messages(struct GAME_STATE *game)
 
 void game_main_loop(struct GAME_STATE *game, struct JOYSTICK *joy)
 {
+    run_state_init();
     game_init(game);
 
-    msg_mod_play(&raven_mods[game->mod.index], game->mod.volume>>4, true);
+    msg_mod_play(&raven_mods[run_state.mod.index], run_state.mod.volume>>4, true);
     while (true) {
-        GAME_PERF_START(game);
+        RUN_PERF_START();
 
         // request joy update
         joy->last = joy->cur;
         joy_wii_i2c_request_state(joy);
         uint32_t joy_req_us = time_us_32();
-        GAME_PERF_AT(game, joy_req_us, joy_req_us);
+        RUN_PERF_AT(joy_req_us, joy_req_us);
 
         // process core messages while waiting for joy update
         process_core_messages(game);
@@ -316,20 +313,20 @@ void game_main_loop(struct GAME_STATE *game, struct JOYSTICK *joy)
         // ensure 200us have elapsed since joy update request
         while (time_us_32() - joy_req_us < 200) sleep_us(10);
         joy_wii_i2c_read_state(joy);
-        GAME_PERF(game, joy_read_us);
+        RUN_PERF(joy_read_us);
 
-        if (game->room_transition.enabled) {
+        if (run_state.room_transition.enabled) {
             // TODO: fade
-            load_room(game, game->room_transition.dst_room_id);
-            place_player_at_door_exit(game, game->room_transition.dst_door_trigger_id);
+            load_room(game, run_state.room_transition.dst_room_id);
+            place_player_at_door_exit(game, run_state.room_transition.dst_door_trigger_id);
             screen_follow_player(game);
-            game->room_transition.enabled = 0;
+            run_state.room_transition.enabled = 0;
         } else {
             process_joy_input(game, joy);
             update_game_state(game, joy);
         }
 
-        GAME_PERF(game, update_us);
+        RUN_PERF(update_us);
         screen_render(game, joy);
     }
 }
