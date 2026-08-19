@@ -6,15 +6,6 @@
 #include "lib/joystick.h"
 #include "lib/mem.h"
 
-#define DX_ACCEL      ((int32_t) 0x100)
-#define DX_FRICTION   ((int32_t) 0x0c0)
-#define DX_MAX        ((int32_t) 0x700)
-
-#define DY_GRAVITY    ((int32_t) 0x0c0)
-#define DY_MAX        ((int32_t) 0x900)
-#define DY_JUMP_START ((int32_t)-0xa00)
-#define DY_JUMP_HOLD  ((int32_t)-0x060)
-
 static void update_sprite_info(struct GAME_STATE *game)
 {
     struct RAVEN_CHARACTER *pl = &game->player;

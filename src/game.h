@@ -7,20 +7,20 @@
 
 #define GAME_MAX_ENEMIES  32
 
+#define DX_ACCEL      ((int32_t) 0x100)
+#define DX_FRICTION   ((int32_t) 0x0c0)
+#define DX_MAX        ((int32_t) 0x700)
+
+#define DY_GRAVITY    ((int32_t) 0x0c0)
+#define DY_MAX        ((int32_t) 0x900)
+#define DY_JUMP_START ((int32_t)-0xa00)
+#define DY_JUMP_HOLD  ((int32_t)-0x060)
+
 enum PLAYER_STATE {
     PLAYER_STATE_STAND,
     PLAYER_STATE_WALK,
     PLAYER_STATE_JUMP,
     PLAYER_STATE_FALL,
-};
-
-enum ENEMY_STATE {
-    ENEMY_STATE_STAND,
-    ENEMY_STATE_WALK,
-    ENEMY_STATE_JUMP,
-    ENEMY_STATE_FALL,
-    ENEMY_STATE_LOOK,
-    ENEMY_STATE_BLINK,
 };
 
 struct RAVEN_PLAYER_CONTROL {
@@ -30,8 +30,9 @@ struct RAVEN_PLAYER_CONTROL {
 
 struct RAVEN_ENEMY_CONTROL {
     int8_t enemy_type;
-    int8_t ai_state;
     int16_t wait;
+    int16_t dx;  // 8.8 fixpoint
+    int16_t dy;
 };
 
 struct RAVEN_CHARACTER {
