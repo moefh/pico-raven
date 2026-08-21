@@ -11,10 +11,11 @@ static void update_sprite_info(struct GAME_STATE *game)
     struct RAVEN_CHARACTER *pl = &game->player;
 
     switch (pl->state) {
-    case PLAYER_STATE_STAND: pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_STAND; break;
-    case PLAYER_STATE_WALK:  pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_RUN; break;
-    case PLAYER_STATE_JUMP:  pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_JUMP; break;
-    case PLAYER_STATE_FALL:  pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_FALL; break;
+    case PLAYER_STATE_STAND:  pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_STAND; break;
+    case PLAYER_STATE_WALK:   pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_RUN; break;
+    case PLAYER_STATE_JUMP:   pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_JUMP; break;
+    case PLAYER_STATE_FALL:   pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_FALL; break;
+    case PLAYER_STATE_CROUCH: pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_CROUCH; break;
     }
     const struct RAVEN_SPRITE_ANIMATION_LOOP *loop = &pl->anim->loops[pl->anim_loop];
     int loop_frame = pl->anim_frame >> 8;
@@ -80,7 +81,7 @@ void player_update(struct GAME_STATE *game, struct JOYSTICK *joy)
         plc->dy = 0;
         if (JOY_BTN_HELD(joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
             pl->state = PLAYER_STATE_WALK;
-        } else {
+        } else if (pl->state != PLAYER_STATE_CROUCH) {
             pl->state = PLAYER_STATE_STAND;
         }
         pl->anim_frame = 0;
@@ -92,7 +93,7 @@ void player_update(struct GAME_STATE *game, struct JOYSTICK *joy)
             pl->state = PLAYER_STATE_FALL;
             pl->anim_frame = 0;
         }
-    } else if (pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK) {
+    } else if (pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK || pl->state == PLAYER_STATE_CROUCH) {
         int y = rect.y;
         if (collision_move(game, &rect, 0, 1) == 0) {
             pl->state = PLAYER_STATE_FALL;
@@ -120,11 +121,11 @@ void player_control_update(struct GAME_STATE *game, struct JOYSTICK *joy)
     struct RAVEN_PLAYER_CONTROL *plc = &game->player_control;
 
     // walk
-    if (pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK) {
+    if (pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK || pl->state == PLAYER_STATE_CROUCH) {
         if (pl->state != PLAYER_STATE_WALK && JOY_BTN_HELD(joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
             pl->state = PLAYER_STATE_WALK;
             pl->anim_frame = 0;
-        } else if (pl->state != PLAYER_STATE_STAND && ! JOY_BTN_HELD(joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
+        } else if (pl->state == PLAYER_STATE_WALK && ! JOY_BTN_HELD(joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
             pl->state = PLAYER_STATE_STAND;
             pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_STAND;
             pl->anim_frame = 0;
@@ -144,6 +145,16 @@ void player_control_update(struct GAME_STATE *game, struct JOYSTICK *joy)
     // change direction
     if (JOY_BTN_HELD(joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
         pl->direction = JOY_BTN_HELD(joy, JOY_BTN_RIGHT) ? RAVEN_DIR_RIGHT : RAVEN_DIR_LEFT;
+    }
+
+    // crouch
+    if (pl->state == PLAYER_STATE_STAND && JOY_BTN_HELD(joy, JOY_BTN_DOWN)) {
+        pl->state = PLAYER_STATE_CROUCH;
+        pl->anim_frame = 0;
+    }
+    if (pl->state == PLAYER_STATE_CROUCH && JOY_BTN_HELD(joy, JOY_BTN_UP|JOY_BTN_A)) {
+        pl->state = PLAYER_STATE_STAND;
+        pl->anim_frame = 0;
     }
 
     // limit x speed
@@ -174,7 +185,7 @@ void player_control_update(struct GAME_STATE *game, struct JOYSTICK *joy)
     }
 
     // apply gravity
-    if (pl->state != PLAYER_STATE_STAND && pl->state != PLAYER_STATE_WALK) {
+    if (pl->state != PLAYER_STATE_STAND && pl->state != PLAYER_STATE_WALK && pl->state != PLAYER_STATE_CROUCH) {
         plc->dy += DY_GRAVITY;
     }
     if (plc->dy >= DY_MAX) plc->dy = DY_MAX;

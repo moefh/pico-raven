@@ -41,11 +41,13 @@ static struct READ_SAVE_DATA init_read(const uint8_t *data, int32_t size)
     };
 }
 
+#if 0
 static uint8_t read_u8(struct READ_SAVE_DATA *save)
 {
     if (save->data + 1 > save->end) { save->error = 1; return 0; }
     return *save->data++;
 }
+#endif
 
 static uint16_t read_u16(struct READ_SAVE_DATA *save)
 {
@@ -56,6 +58,7 @@ static uint16_t read_u16(struct READ_SAVE_DATA *save)
     return ret;
 }
 
+#if 0
 static uint32_t read_u32(struct READ_SAVE_DATA *save)
 {
     if (save->data + 4 > save->end) { save->error = 1; return 0; }
@@ -66,6 +69,7 @@ static uint32_t read_u32(struct READ_SAVE_DATA *save)
     save->data += 4;
     return ret;
 }
+#endif
 
 static void read_bytes(struct READ_SAVE_DATA *save, void *bytes, uint32_t len)
 {
@@ -97,11 +101,13 @@ static struct WRITE_SAVE_DATA init_write(uint8_t *data, int32_t size)
     };
 }
 
+#if 0
 static void write_u8(struct WRITE_SAVE_DATA *save, uint8_t data)
 {
     if (save->data + 1 > save->end) { save->error = 1; return; }
     *save->data++ = data;
 }
+#endif
 
 static void write_u16(struct WRITE_SAVE_DATA *save, uint16_t data)
 {
@@ -110,6 +116,7 @@ static void write_u16(struct WRITE_SAVE_DATA *save, uint16_t data)
     *save->data++ = (data >> 8) & 0xff;
 }
 
+#if 0
 static void write_u32(struct WRITE_SAVE_DATA *save, uint32_t data)
 {
     if (save->data + 4 > save->end) { save->error = 1; return; }
@@ -118,6 +125,7 @@ static void write_u32(struct WRITE_SAVE_DATA *save, uint32_t data)
     *save->data++ = (data >> 16) & 0xff;
     *save->data++ = (data >> 24) & 0xff;
 }
+#endif
 
 static void write_bytes(struct WRITE_SAVE_DATA *save, const void *bytes, uint32_t len)
 {
@@ -130,47 +138,43 @@ static void write_bytes(struct WRITE_SAVE_DATA *save, const void *bytes, uint32_
 // ==== SERIALIZE/DESERIALIZE
 // ========================================================================
 
-static int deserialize_game(struct READ_SAVE_DATA *save, struct GAME_STATE *game)
+static int deserialize_game(struct READ_SAVE_DATA *save, struct SAVEGAME *savegame)
 {
     uint8_t magic[4] = {0};
     read_bytes(save, magic, 4);
     if (memcmp(magic, savegame_magic, 4) != 0) return 1;
 
-    game->room_id = read_u16(save);
-    game->player.x = read_u32(save);
-    game->player.y = read_u32(save);
-    game->player.direction = read_u8(save);
+    savegame->room_id = read_u16(save);
+
     return save->error;
 }
 
-static int serialize_game(struct WRITE_SAVE_DATA *save, const struct GAME_STATE *game)
+static int serialize_game(struct WRITE_SAVE_DATA *save, const struct SAVEGAME *savegame)
 {
     write_bytes(save, savegame_magic, 4);
-    write_u16(save, game->room_id);
-    write_u32(save, game->player.x);
-    write_u32(save, game->player.y);
-    write_u8(save, game->player.direction);
+    write_u16(save, savegame->room_id);
+
     return save->error;
 }
 
-int savegame_read(struct GAME_STATE *game, int slot)
+int savegame_read(struct SAVEGAME *savegame, int slot)
 {
     uint32_t flash_offset = get_flash_offset_for_slot(slot);
     if (flash_offset == 0) return 1;
 
     const uint8_t *save_data = (const uint8_t *) (XIP_BASE + flash_offset);
     struct READ_SAVE_DATA save = init_read(save_data, FLASH_SECTOR_SIZE);
-    return deserialize_game(&save, game);
+    return deserialize_game(&save, savegame);
 }
 
-int savegame_write(const struct GAME_STATE *game, int slot)
+int savegame_write(const struct SAVEGAME *savegame, int slot)
 {
     uint32_t flash_offset = get_flash_offset_for_slot(slot);
     if (flash_offset == 0) return 1;
 
-    struct WRITE_SAVE_DATA save = init_write(scratch_buffer, FLASH_SECTOR_SIZE);
     memset(scratch_buffer, 0, FLASH_SECTOR_SIZE);
-    if (serialize_game(&save, game) != 0) {
+    struct WRITE_SAVE_DATA save = init_write(scratch_buffer, FLASH_SECTOR_SIZE);
+    if (serialize_game(&save, savegame) != 0) {
         return 1;
     }
 

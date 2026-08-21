@@ -20,6 +20,11 @@
 #include "draw_room.h"
 #include "savegame.h"
 
+static struct SAVEGAME tmp_savegame;
+static const struct SAVEGAME new_savegame = {
+    .room_id = RAVEN_ROOM_ID_WEST__BUNTOWN_GATE,
+};
+
 int game_check_player_trigger(struct GAME_STATE *game, uint32_t trigger_type_flags)
 {
     int p1_x = game->player.x + game->player.anim->collision.w/2;
@@ -158,27 +163,19 @@ static void load_room(struct GAME_STATE *game, uint32_t room_id)
     screen_follow_player(game);
 }
 
-static void game_init(struct GAME_STATE *game)
+static void apply_savegame(struct GAME_STATE *game, const struct SAVEGAME *savegame)
 {
+    run_state_init();
     player_set_sprite_anim(game, RAVEN_SPRITE_ANIMATION_ID_BUNNY);
-    load_room(game, RAVEN_ROOM_ID_WEST__BUNTOWN_GATE);
+    load_room(game, savegame->room_id);
+    msg_mod_play(&raven_mods[run_state.mod.index], run_state.mod.volume>>4, true);
 }
 
 static void load_game(struct GAME_STATE *game)
 {
-    static struct GAME_STATE tmp_game;
-
-    memcpy(&tmp_game, game, sizeof(struct GAME_STATE));
-    int ret = savegame_read(&tmp_game, 0);
+    int ret = savegame_read(&tmp_savegame, 0);
     if (ret == 0) {
-        memcpy(game, &tmp_game, sizeof(struct GAME_STATE));
-        game->player.state = PLAYER_STATE_STAND;
-        game->player.anim_frame = 0;
-        player_control_init(game);
-        run_state.display.msg_mod_event_frames_left = 0;
-        run_state.display.msg_save_frames_left = 0;
-        msg_mod_play(&raven_mods[run_state.mod.index], run_state.mod.volume>>4, true);
-        screen_follow_player(game);
+        apply_savegame(game, &tmp_savegame);
     }
     run_state.display.load_success = (ret == 0);
     run_state.display.msg_load_frames_left = 180;
@@ -186,7 +183,9 @@ static void load_game(struct GAME_STATE *game)
 
 static void save_game(struct GAME_STATE *game)
 {
-    int ret = savegame_write(game, 0);
+    memset(&tmp_savegame, 0, sizeof(struct SAVEGAME));
+    tmp_savegame.room_id = game->room_id;
+    int ret = savegame_write(&tmp_savegame, 0);
     run_state.display.save_success = (ret == 0);
     run_state.display.msg_save_frames_left = 180;
     run_state.display.msg_load_frames_left = 0;
@@ -295,10 +294,8 @@ static void process_core_messages(struct GAME_STATE *game)
 
 void game_main_loop(struct GAME_STATE *game, struct JOYSTICK *joy)
 {
-    run_state_init();
-    game_init(game);
+    apply_savegame(game, &new_savegame);
 
-    msg_mod_play(&raven_mods[run_state.mod.index], run_state.mod.volume>>4, true);
     while (true) {
         RUN_PERF_START();
 

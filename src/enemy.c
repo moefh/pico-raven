@@ -297,11 +297,13 @@ static void update_hopper(struct GAME_STATE *game, int enemy_index)
                 enemy->state = HOPPER_STATE_POUNCE_PREP;
                 enemy->anim_frame = 0;
                 enemy->direction = (game->player.x < enemy->x) ? RAVEN_DIR_LEFT : RAVEN_DIR_RIGHT;
+                control->dx = (enemy->direction == RAVEN_DIR_LEFT) ? -0x100 : 0x100;
             } else {
                 enemy->state = HOPPER_STATE_PATROL_WALK;
                 enemy->anim_frame = 0;
+                control->dx = (enemy->direction == RAVEN_DIR_LEFT) ? -0x100 : 0x100;
+                control->wait = 120;
             }
-            control->dx = (enemy->direction == RAVEN_DIR_LEFT) ? -0x100 : 0x100;
         }
         break;
 
@@ -337,6 +339,7 @@ static void update_hopper(struct GAME_STATE *game, int enemy_index)
             enemy->anim_frame = 0;
             control->wait = 120;
         }
+        control->dx = (enemy->direction == RAVEN_DIR_LEFT) ? -0x100 : 0x100;
         break;
 
     case HOPPER_STATE_POUNCE_PREP:
