@@ -245,6 +245,37 @@ void screen_render(struct GAME_STATE *game, struct JOYSTICK *joy)
     }
 
     RUN_PERF(render_us);
-    vga_swap_buffers(true);
-    RUN_PERF(vsync_us);
+}
+
+void screen_save_to_scratch(int clear_after)
+{
+    int len = vga_screen.width * vga_screen.height;
+    memcpy(draw_frame_arena.data, vga_screen.framebuffer, len);
+    if (clear_after) {
+        memset(vga_screen.framebuffer, 0, len);
+    }
+}
+
+void screen_fade_from_scratch(int level)
+{
+    int len = vga_screen.width * vga_screen.height;
+    uint32_t *src = draw_frame_arena.data;
+    uint32_t *dst = vga_screen.framebuffer;
+    switch (level) {
+    case 2:
+        for (int i = len/4; i > 0; i--) {
+            *dst++ = (*src++ >> 1) & 0x5b5b5b5b;
+        }
+        break;
+
+    case 1:
+        for (int i = len/4; i > 0; i--) {
+            *dst++ = (*src++ >> 2) & 0x09090909;
+        }
+        break;
+
+    default:
+        memset(dst, 0, len);
+        break;
+    }
 }

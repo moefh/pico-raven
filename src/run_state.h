@@ -33,7 +33,8 @@ struct GAME_STATE_ROOM_TRANSITION {
     uint32_t src_room_id;
     uint16_t dst_door_trigger_id;
     uint16_t src_door_trigger_id;
-    int8_t enabled;
+    uint16_t enabled;
+    uint16_t frame;
 };
 
 struct GAME_STATE_MOD {

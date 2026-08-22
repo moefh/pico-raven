@@ -261,6 +261,7 @@ static void update_game_state(struct GAME_STATE *game, struct JOYSTICK *joy)
             run_state.room_transition.dst_room_id = (uint16_t) (door->door.dest_room - raven_rooms);
             run_state.room_transition.dst_door_trigger_id = door->door.dest_trigger_id;
             run_state.room_transition.enabled = true;
+            run_state.room_transition.frame = 0;
         }
     }
     if (run_state.update_room) {
@@ -292,6 +293,51 @@ static void process_core_messages(struct GAME_STATE *game)
     }
 }
 
+static int advance_door_transition(struct GAME_STATE *game, struct JOYSTICK *joy)
+{
+    if (run_state.room_transition.frame == 0) {
+        // render and capture exiting old room
+        RUN_PERF(update_us);
+        screen_render(game, joy);
+        screen_save_to_scratch(0);
+        vga_swap_buffers(true);
+        RUN_PERF(vsync_us);
+    } else if (run_state.room_transition.frame == 2<<3) {
+        // render and capture entering new room
+        load_room(game, run_state.room_transition.dst_room_id);
+        place_player_at_door_exit(game, run_state.room_transition.dst_door_trigger_id);
+        screen_follow_player(game);
+        RUN_PERF(update_us);
+        screen_render(game, joy);
+        screen_save_to_scratch(1);
+    } else {
+        int level = run_state.room_transition.frame >> 3;
+
+        // resume normal game
+        if (level >= 5) {
+            run_state.room_transition.enabled = 0;
+            return 0;
+        }
+
+        RUN_PERF(update_us);
+        if (level < 2) {
+            // fade out
+            screen_fade_from_scratch(2 - level);
+        } else if (level > 2) {
+            // fade in
+            screen_fade_from_scratch(level - 2);
+        } else {
+            // black
+            screen_fade_from_scratch(0);
+        }
+    }
+
+    vga_swap_buffers(true);
+    RUN_PERF(vsync_us);
+    run_state.room_transition.frame++;
+    return 1;
+}
+
 void game_main_loop(struct GAME_STATE *game, struct JOYSTICK *joy)
 {
     apply_savegame(game, &new_savegame);
@@ -313,18 +359,16 @@ void game_main_loop(struct GAME_STATE *game, struct JOYSTICK *joy)
         joy_wii_i2c_read_state(joy);
         RUN_PERF(joy_read_us);
 
-        if (run_state.room_transition.enabled) {
-            // TODO: fade
-            load_room(game, run_state.room_transition.dst_room_id);
-            place_player_at_door_exit(game, run_state.room_transition.dst_door_trigger_id);
-            screen_follow_player(game);
-            run_state.room_transition.enabled = 0;
-        } else {
-            process_joy_input(game, joy);
-            update_game_state(game, joy);
+        if (run_state.room_transition.enabled && advance_door_transition(game, joy)) {
+            continue;
         }
 
+        process_joy_input(game, joy);
+        update_game_state(game, joy);
         RUN_PERF(update_us);
+
         screen_render(game, joy);
+        vga_swap_buffers(true);
+        RUN_PERF(vsync_us);
     }
 }
