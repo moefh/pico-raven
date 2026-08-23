@@ -66,23 +66,6 @@ int screen_init(void)
     return 0;
 }
 
-static int fps_count(void)
-{
-    static uint32_t last_millis;
-    static uint16_t frame_count;
-    static uint16_t last_fps;
-
-    uint32_t cur_millis = to_ms_since_boot(get_absolute_time());
-    if (cur_millis/1000 != last_millis/1000) {
-        last_fps = frame_count;
-        frame_count = 1;
-    } else {
-        frame_count++;
-    }
-    last_millis = cur_millis;
-    return last_fps;
-}
-
 static uint32_t update_perf_history_counter(uint32_t x, uint32_t start, uint32_t counter, uint8_t color)
 {
     uint32_t end = counter >> 8;
@@ -192,8 +175,6 @@ static void draw_room(struct GAME_STATE *game)
 
 void screen_render(struct GAME_STATE *game, struct JOYSTICK *joy)
 {
-    int fps = fps_count();
-
     mem_clear(&draw_frame_arena);
     //vga_clear_screen(0);
 
@@ -202,7 +183,7 @@ void screen_render(struct GAME_STATE *game, struct JOYSTICK *joy)
     if (run_state.display.show_perf) {
         font_align(FONT_ALIGN_LEFT);
         font_move(10, 10);
-        font_printf("%d fps", fps);
+        font_printf("%d fps", run_state.fps_count);
 
         font_move(10, 20); font_printf("pos  %4ld,%-4ld\n", game->player.x, game->player.y);
         font_move(10, 30); font_printf("vel %5ld,%-5ld\n", game->player_control.dx, game->player_control.dy);

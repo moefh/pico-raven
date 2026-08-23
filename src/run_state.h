@@ -29,12 +29,18 @@ struct GAME_STATE_DISPLAY {
 };
 
 struct GAME_STATE_ROOM_TRANSITION {
+    uint16_t enabled;
+    uint16_t frame;
     uint32_t dst_room_id;
     uint32_t src_room_id;
     uint16_t dst_door_trigger_id;
     uint16_t src_door_trigger_id;
-    uint16_t enabled;
-    uint16_t frame;
+    int8_t player_x;
+    int8_t player_y;
+    uint8_t player_state;
+    uint8_t player_direction;
+    int32_t player_dx;
+    int32_t player_dy;
 };
 
 struct GAME_STATE_MOD {
@@ -54,6 +60,8 @@ struct GAME_RUN_STATE {
     struct GAME_STATE_ROOM_TRANSITION room_transition;
     struct GAME_STATE_MOD mod;
 
+    int fps_count;
+
     int32_t room_w;
     int32_t room_h;
     int32_t screen_x;
@@ -63,6 +71,8 @@ struct GAME_RUN_STATE {
 };
 
 void run_state_init(void);
+void run_state_fps_count(void);
+void run_state_blink_led(void);
 
 #define RUN_PERF_START()         (run_state.perf.frame_start_us = time_us_32())
 #define RUN_PERF(name)           RUN_PERF_AT(name, time_us_32())

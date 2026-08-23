@@ -25,6 +25,17 @@ static const struct SAVEGAME new_savegame = {
     .room_id = RAVEN_ROOM_ID_WEST__BUNTOWN_GATE,
 };
 
+const struct RAVEN_ROOM_TRIGGER_INFO *game_get_trigger_from_id(int room_id, int trigger_id)
+{
+    const struct RAVEN_ROOM *room = &raven_rooms[room_id];
+    for (int i = 0; i < room->num_triggers; i++) {
+        if (room->triggers[i].trigger_id == trigger_id) {
+            return &room->triggers[i];
+        }
+    }
+    return NULL;
+}
+
 int game_check_player_trigger(struct GAME_STATE *game, uint32_t trigger_type_flags)
 {
     int p1_x = game->player.x + game->player.anim->collision.w/2;
@@ -87,45 +98,27 @@ static void screen_follow_player(struct GAME_STATE *game)
     if (run_state.screen_y >= run_state.room_h - vga_screen.height) run_state.screen_y = run_state.room_h - vga_screen.height;
 }
 
-static int place_player_at_door_exit(struct GAME_STATE *game, int32_t door_trigger_id)
+static int place_player_at_door_transition(struct GAME_STATE *game)
 {
-    const struct RAVEN_ROOM *room = &raven_rooms[game->room_id];
-    const struct RAVEN_ROOM_TRIGGER_INFO *door = NULL;
-    for (int i = 0; i < room->num_triggers; i++) {
-        if (room->triggers[i].trigger_id == door_trigger_id) {
-            door = &room->triggers[i];
-            break;
-        }
-    }
+    const struct RAVEN_ROOM_TRIGGER_INFO *door = game_get_trigger_from_id(game->room_id, run_state.room_transition.dst_door_trigger_id);
     if (door == NULL) {
         return -1;
     }
 
-    // move player near door
     int tile_x = door->x / TILE_SIZE;
     int tile_y = door->y / TILE_SIZE;
     if (collision_get_room_tile_at(game, tile_x + 1, tile_y) == 0xff) {
-        game->player.direction = RAVEN_DIR_RIGHT;
         game->player.x = TILE_SIZE + 2;
-        game->player.y = door->y + 4*TILE_SIZE - game->player.anim->collision.h;
+        if (run_state.room_transition.player_dx < 0) run_state.room_transition.player_dx = 0;
     } else {
-        game->player.direction = RAVEN_DIR_LEFT;
         game->player.x = door->x - 2 - game->player.anim->collision.w;
-        game->player.y = door->y + 4*TILE_SIZE - game->player.anim->collision.h;
+        if (run_state.room_transition.player_dx > 0) run_state.room_transition.player_dx = 0;
     }
-
-    // set player on ground
-    struct COLLISION_RECT rect = {
-        .x = game->player.x,
-        .y = game->player.y,
-        .w = game->player.anim->collision.w,
-        .h = game->player.anim->collision.h,
-    };
-    while (collision_move(game, &rect, 0, 128) == 0) {
-        // keep going down until we hit the floor
-    }
-    game->player.x = rect.x;
-    game->player.y = rect.y;
+    game->player.y = door->y + run_state.room_transition.player_y;
+    game->player.state = run_state.room_transition.player_state;
+    game->player.direction = run_state.room_transition.player_direction;
+    game->player_control.dx = run_state.room_transition.player_dx;
+    game->player_control.dy = run_state.room_transition.player_dy;
     return 0;
 }
 
@@ -235,13 +228,6 @@ static void process_joy_input(struct GAME_STATE *game, struct JOYSTICK *joy)
 
 static void update_game_state(struct GAME_STATE *game, struct JOYSTICK *joy)
 {
-    // blink LED
-    if (run_state.led.frames-- <= 0) {
-        run_state.led.frames = 15;
-        run_state.led.state = !run_state.led.state;
-        gpio_put(LED_PIN, run_state.led.state);
-    }
-
     // advance message display timers
     if (run_state.display.msg_mod_event_frames_left > 0) run_state.display.msg_mod_event_frames_left--;
     if (run_state.display.msg_load_frames_left > 0) run_state.display.msg_load_frames_left--;
@@ -256,12 +242,18 @@ static void update_game_state(struct GAME_STATE *game, struct JOYSTICK *joy)
         int door_index = game_check_player_trigger(game, 1<<RAVEN_ROOM_TRIGGER_TYPE_DOOR);
         if (door_index >= 0) {
             const struct RAVEN_ROOM_TRIGGER_INFO *door = &raven_rooms[game->room_id].triggers[door_index];
+            run_state.room_transition.enabled = true;
+            run_state.room_transition.frame = 0;
             run_state.room_transition.src_room_id = game->room_id;
             run_state.room_transition.src_door_trigger_id = door->trigger_id;
             run_state.room_transition.dst_room_id = (uint16_t) (door->door.dest_room - raven_rooms);
             run_state.room_transition.dst_door_trigger_id = door->door.dest_trigger_id;
-            run_state.room_transition.enabled = true;
-            run_state.room_transition.frame = 0;
+            run_state.room_transition.player_x = game->player.x - door->x;
+            run_state.room_transition.player_y = game->player.y - door->y;
+            run_state.room_transition.player_state = game->player.state;
+            run_state.room_transition.player_direction = game->player.direction;
+            run_state.room_transition.player_dx = game->player_control.dx;
+            run_state.room_transition.player_dy = game->player_control.dy;
         }
     }
     if (run_state.update_room) {
@@ -293,42 +285,50 @@ static void process_core_messages(struct GAME_STATE *game)
     }
 }
 
-static int advance_door_transition(struct GAME_STATE *game, struct JOYSTICK *joy)
+static int advance_room_transition(struct GAME_STATE *game, struct JOYSTICK *joy)
 {
-    if (run_state.room_transition.frame == 0) {
+#define FADE_OUT_FRAMES 16
+#define BLACKOUT_FRAMES 8
+#define FADE_IN_FRAMES  16
+#define START_FADE_OUT  0
+#define END_FADE_OUT    (START_FADE_OUT+FADE_OUT_FRAMES-1)
+#define START_BLACKOUT  (END_FADE_OUT+1)
+#define END_BLACKOUT    (START_BLACKOUT+BLACKOUT_FRAMES-1)
+#define START_FADE_IN   (END_BLACKOUT+1)
+#define END_FADE_IN     (START_FADE_IN+FADE_IN_FRAMES)
+#define END_TRANSITION  (END_FADE_IN+1)
+    if (run_state.room_transition.frame == START_FADE_OUT) {
         // render and capture exiting old room
         RUN_PERF(update_us);
         screen_render(game, joy);
         screen_save_to_scratch(0);
         vga_swap_buffers(true);
         RUN_PERF(vsync_us);
-    } else if (run_state.room_transition.frame == 2<<3) {
+    } else if (run_state.room_transition.frame == START_FADE_IN) {
         // render and capture entering new room
         load_room(game, run_state.room_transition.dst_room_id);
-        place_player_at_door_exit(game, run_state.room_transition.dst_door_trigger_id);
+        place_player_at_door_transition(game);
         screen_follow_player(game);
         RUN_PERF(update_us);
         screen_render(game, joy);
         screen_save_to_scratch(1);
     } else {
-        int level = run_state.room_transition.frame >> 3;
-
-        // resume normal game
-        if (level >= 5) {
+        if (run_state.room_transition.frame >= END_TRANSITION) {
+            // transition done, resume game
             run_state.room_transition.enabled = 0;
             return 0;
         }
 
         RUN_PERF(update_us);
-        if (level < 2) {
-            // fade out
-            screen_fade_from_scratch(2 - level);
-        } else if (level > 2) {
-            // fade in
-            screen_fade_from_scratch(level - 2);
-        } else {
-            // black
+        if (run_state.room_transition.frame <= END_FADE_OUT) {
+            // fading out
+            screen_fade_from_scratch(2 - (run_state.room_transition.frame-START_FADE_OUT) / (FADE_OUT_FRAMES/2));
+        } else if (run_state.room_transition.frame <= END_BLACKOUT) {
+            // blacking out
             screen_fade_from_scratch(0);
+        } else if (run_state.room_transition.frame <= END_FADE_IN) {
+            // fading in
+            screen_fade_from_scratch(1 + (run_state.room_transition.frame-START_FADE_IN) / (FADE_IN_FRAMES/2));
         }
     }
 
@@ -359,14 +359,21 @@ void game_main_loop(struct GAME_STATE *game, struct JOYSTICK *joy)
         joy_wii_i2c_read_state(joy);
         RUN_PERF(joy_read_us);
 
-        if (run_state.room_transition.enabled && advance_door_transition(game, joy)) {
+        // update run state
+        run_state_fps_count();
+        run_state_blink_led();
+
+        // door transition
+        if (run_state.room_transition.enabled && advance_room_transition(game, joy)) {
             continue;
         }
 
+        // advance game
         process_joy_input(game, joy);
         update_game_state(game, joy);
         RUN_PERF(update_us);
 
+        // render screen
         screen_render(game, joy);
         vga_swap_buffers(true);
         RUN_PERF(vsync_us);
