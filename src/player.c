@@ -6,7 +6,7 @@
 #include "lib/joystick.h"
 #include "lib/mem.h"
 
-static void update_sprite_info(struct GAME_STATE *game)
+void player_update_sprite_info(struct GAME_STATE *game)
 {
     struct RAVEN_CHARACTER *pl = &game->player;
 
@@ -59,7 +59,7 @@ void player_init(struct GAME_STATE *game)
     pl->anim_frame = 0;
     pl->shadow_enabled = 0;
 
-    update_sprite_info(game);
+    player_update_sprite_info(game);
 }
 
 void player_update(struct GAME_STATE *game, struct JOYSTICK *joy)
@@ -105,7 +105,7 @@ void player_update(struct GAME_STATE *game, struct JOYSTICK *joy)
     pl->x = rect.x;
     pl->y = rect.y;
     pl->anim_frame += pl->anim->loops[pl->anim_loop].frame_adv + 1; // [0-255] -> [1-256]
-    update_sprite_info(game);
+    player_update_sprite_info(game);
 }
 
 void player_control_init(struct GAME_STATE *game)

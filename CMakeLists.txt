@@ -24,6 +24,7 @@ add_executable(${PROJECT_NAME}
     src/enemy.c
     src/draw_room.c
     src/sprite_shadow.c
+    src/rooms/default.c
     src/rooms/west__buntown_gate.c
     src/rooms/west__west_hall.c
     src/rooms/east__test.c

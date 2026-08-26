@@ -9,6 +9,15 @@
 #define COLLISION_FLAGS_LEFT  (1<<3)
 #define COLLISION_FLAGS_RIGHT (1<<4)
 
+#define TILE_FX_BLOCK       0
+#define TILE_FX_L_RAMP_FULL 1
+#define TILE_FX_R_RAMP_FULL 2
+#define TILE_FX_L_RAMP_BOT  3
+#define TILE_FX_L_RAMP_TOP  4
+#define TILE_FX_R_RAMP_BOT  5
+#define TILE_FX_R_RAMP_TOP  6
+#define TILE_FX_FREE        0xff
+
 struct COLLISION_RECT {
     int32_t x;
     int32_t y;

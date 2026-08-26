@@ -19,10 +19,11 @@
 #include "sprite_shadow.h"
 #include "draw_room.h"
 #include "savegame.h"
+#include "default_room_script.h"
 
 static struct SAVEGAME tmp_savegame;
 static const struct SAVEGAME new_savegame = {
-    .room_id = RAVEN_ROOM_ID_WEST__BUNTOWN_GATE,
+    .room_id = RAVEN_ROOM_ID_WEST__LAB__FLOOR0,
 };
 
 const struct RAVEN_ROOM_TRIGGER_INFO *game_get_trigger_from_id(int room_id, int trigger_id)
@@ -107,8 +108,8 @@ static int place_player_at_door_transition(struct GAME_STATE *game)
 
     int tile_x = door->x / TILE_SIZE;
     int tile_y = door->y / TILE_SIZE;
-    if (collision_get_room_tile_at(game, tile_x + 1, tile_y) == 0xff) {
-        game->player.x = TILE_SIZE + 2;
+    if (collision_get_room_tile_at(game, tile_x + 1, tile_y) == TILE_FX_FREE) {
+        game->player.x = door->x + TILE_SIZE + 2;
         if (run_state.room_transition.player_dx < 0) run_state.room_transition.player_dx = 0;
     } else {
         game->player.x = door->x - 2 - game->player.anim->collision.w;
@@ -119,6 +120,7 @@ static int place_player_at_door_transition(struct GAME_STATE *game)
     game->player.direction = run_state.room_transition.player_direction;
     game->player_control.dx = run_state.room_transition.player_dx;
     game->player_control.dy = run_state.room_transition.player_dy;
+    player_update_sprite_info(game);
     return 0;
 }
 
@@ -150,7 +152,8 @@ static void load_room(struct GAME_STATE *game, uint32_t room_id)
         script_table->init(room_id, game);
         run_state.update_room = script_table->update;
     } else {
-        run_state.update_room = NULL;
+        default_room_init(room_id, game);
+        run_state.update_room = default_room_update;
     }
 
     screen_follow_player(game);

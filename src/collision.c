@@ -3,14 +3,6 @@
 #include "game.h"
 #include "collision.h"
 
-#define TILE_BLOCK       0
-#define TILE_L_RAMP_FULL 1
-#define TILE_R_RAMP_FULL 2
-#define TILE_L_RAMP_BOT  3
-#define TILE_L_RAMP_TOP  4
-#define TILE_R_RAMP_BOT  5
-#define TILE_R_RAMP_TOP  6
-
 uint8_t collision_get_room_tile_at(struct GAME_STATE *game, int tx, int ty)
 {
     const struct RAVEN_ROOM *room = &raven_rooms[game->room_id];
@@ -23,7 +15,7 @@ uint8_t collision_get_room_tile_at(struct GAME_STATE *game, int tx, int ty)
             return mi.map->tiles[mi.map->w*mi.map->h*2 + mi.map->w*map_ty + map_tx];
         }
     }
-    return TILE_BLOCK;
+    return TILE_FX_BLOCK;
 }
 
 // ========================================================================
@@ -43,10 +35,10 @@ static int h_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int sx)
     for (int ty = ty_bot; ty >= ty_top; ty--) {
         uint8_t tile = collision_get_room_tile_at(game, tx, ty);
         switch (tile) {
-        case TILE_BLOCK:
+        case TILE_FX_BLOCK:
             return (sx > 0) ? COLLISION_FLAGS_RIGHT : COLLISION_FLAGS_LEFT;
 
-        case TILE_L_RAMP_FULL:
+        case TILE_FX_L_RAMP_FULL:
             if (ty < ty_bot) {
                 // ramp above foot level
                 return (sx > 0) ? COLLISION_FLAGS_RIGHT : COLLISION_FLAGS_LEFT;
@@ -65,7 +57,7 @@ static int h_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int sx)
             }
             break;
 
-        case TILE_R_RAMP_FULL:
+        case TILE_FX_R_RAMP_FULL:
             if (ty < ty_bot) {
                 // ramp above foot level
                 return (sx > 0) ? COLLISION_FLAGS_RIGHT : COLLISION_FLAGS_LEFT;
@@ -85,7 +77,7 @@ static int h_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int sx)
             }
             break;
 
-        case TILE_L_RAMP_TOP:
+        case TILE_FX_L_RAMP_TOP:
             if (ty < ty_bot) {
                 // ramp above foot level
                 return (sx > 0) ? COLLISION_FLAGS_RIGHT : COLLISION_FLAGS_LEFT;
@@ -104,7 +96,7 @@ static int h_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int sx)
             }
             break;
 
-        case TILE_L_RAMP_BOT:
+        case TILE_FX_L_RAMP_BOT:
             if (ty < ty_bot) {
                 // ramp above foot level
                 return (sx > 0) ? COLLISION_FLAGS_RIGHT : COLLISION_FLAGS_LEFT;
@@ -123,7 +115,7 @@ static int h_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int sx)
             }
             break;
 
-        case TILE_R_RAMP_TOP:
+        case TILE_FX_R_RAMP_TOP:
             if (ty < ty_bot) {
                 // ramp above foot level
                 return (sx > 0) ? COLLISION_FLAGS_RIGHT : COLLISION_FLAGS_LEFT;
@@ -143,7 +135,7 @@ static int h_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int sx)
             }
             break;
 
-        case TILE_R_RAMP_BOT:
+        case TILE_FX_R_RAMP_BOT:
             if (ty < ty_bot) {
                 // ramp above foot level
                 return (sx > 0) ? COLLISION_FLAGS_RIGHT : COLLISION_FLAGS_LEFT;
@@ -184,10 +176,10 @@ static int v_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int sy)
     for (int tx = tx_left; tx <= tx_right; tx++) {
         uint8_t tile = collision_get_room_tile_at(game, tx, ty);
         switch (tile) {
-        case TILE_BLOCK:
+        case TILE_FX_BLOCK:
             return (sy < 0) ? COLLISION_FLAGS_UP : COLLISION_FLAGS_DOWN;
 
-        case TILE_L_RAMP_FULL:
+        case TILE_FX_L_RAMP_FULL:
             if (sy < 0) {
                 return COLLISION_FLAGS_UP;
             }
@@ -206,7 +198,7 @@ static int v_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int sy)
             }
             break;
 
-        case TILE_R_RAMP_FULL:
+        case TILE_FX_R_RAMP_FULL:
             if (sy < 0) {
                 return COLLISION_FLAGS_UP;
             }
@@ -225,7 +217,7 @@ static int v_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int sy)
             }
             break;
 
-        case TILE_L_RAMP_TOP:
+        case TILE_FX_L_RAMP_TOP:
             if (sy < 0) {
                 return COLLISION_FLAGS_UP;
             }
@@ -244,7 +236,7 @@ static int v_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int sy)
             }
             break;
 
-        case TILE_L_RAMP_BOT:
+        case TILE_FX_L_RAMP_BOT:
             if (sy < 0) {
                 return COLLISION_FLAGS_UP;
             }
@@ -263,7 +255,7 @@ static int v_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int sy)
             }
             break;
 
-        case TILE_R_RAMP_TOP:
+        case TILE_FX_R_RAMP_TOP:
             if (sy < 0) {
                 return COLLISION_FLAGS_UP;
             }
@@ -282,7 +274,7 @@ static int v_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int sy)
             }
             break;
 
-        case TILE_R_RAMP_BOT:
+        case TILE_FX_R_RAMP_BOT:
             if (sy < 0) {
                 return COLLISION_FLAGS_UP;
             }
