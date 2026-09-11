@@ -152,7 +152,7 @@ void player_control_update(struct GAME_STATE *game, struct JOYSTICK *joy)
         pl->state = PLAYER_STATE_CROUCH;
         pl->anim_frame = 0;
     }
-    if (pl->state == PLAYER_STATE_CROUCH && JOY_BTN_HELD(joy, JOY_BTN_UP|JOY_BTN_A)) {
+    if (pl->state == PLAYER_STATE_CROUCH && JOY_BTN_HELD(joy, JOY_BTN_UP|JOY_BTN_B)) {
         pl->state = PLAYER_STATE_STAND;
         pl->anim_frame = 0;
     }
@@ -168,7 +168,7 @@ void player_control_update(struct GAME_STATE *game, struct JOYSTICK *joy)
     }
 
     // jump
-    if ((pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK) && JOY_BTN_PRESSED(joy, JOY_BTN_A)) {
+    if ((pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK) && JOY_BTN_PRESSED(joy, JOY_BTN_B)) {
         plc->dy = DY_JUMP_START;
         pl->state = PLAYER_STATE_JUMP;
         pl->anim_frame = 0;
@@ -176,7 +176,7 @@ void player_control_update(struct GAME_STATE *game, struct JOYSTICK *joy)
 
     // hold jump / start fall
     if (pl->state == PLAYER_STATE_JUMP) {
-        if (JOY_BTN_HELD(joy, JOY_BTN_A) && plc->dy < 0) {
+        if (JOY_BTN_HELD(joy, JOY_BTN_B) && plc->dy < 0) {
             plc->dy += DY_JUMP_HOLD;
         } else {
             pl->state = PLAYER_STATE_FALL;

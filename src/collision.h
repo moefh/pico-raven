@@ -16,7 +16,7 @@
 #define TILE_FX_L_RAMP_TOP  4
 #define TILE_FX_R_RAMP_BOT  5
 #define TILE_FX_R_RAMP_TOP  6
-#define TILE_FX_FREE        0xff
+#define TILE_FX_FREE        0xf
 
 struct COLLISION_RECT {
     int32_t x;

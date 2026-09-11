@@ -61,12 +61,14 @@ struct GAME_RUN_STATE {
     struct GAME_STATE_MOD mod;
 
     int fps_count;
+    unsigned int anim_step;
 
     int32_t room_w;
     int32_t room_h;
     int32_t screen_x;
     int32_t screen_y;
     uint8_t room_doors_enabled;
+    uint8_t room_deactivated;
     void (*update_room)(struct GAME_STATE *);
 };
 

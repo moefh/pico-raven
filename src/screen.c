@@ -112,10 +112,10 @@ static void draw_joy_buttons(struct JOYSTICK *joy, int y)
     if (joy->cur & JOY_BTN_LEFT)  { font_move(10+2*10, y); font_printf("<-"); }
     if (joy->cur & JOY_BTN_RIGHT) { font_move(10+3*10, y); font_printf("->"); }
 
-    if (joy->cur & JOY_BTN_A) { font_move(10+0*12, y+10); font_printf("B"); }
-    if (joy->cur & JOY_BTN_B) { font_move(10+1*12, y+10); font_printf("Y"); }
-    if (joy->cur & JOY_BTN_C) { font_move(10+2*12, y+10); font_printf("A"); }
-    if (joy->cur & JOY_BTN_D) { font_move(10+3*12, y+10); font_printf("X"); }
+    if (joy->cur & JOY_BTN_B) { font_move(10+0*12, y+10); font_printf("B"); }
+    if (joy->cur & JOY_BTN_Y) { font_move(10+1*12, y+10); font_printf("Y"); }
+    if (joy->cur & JOY_BTN_A) { font_move(10+2*12, y+10); font_printf("A"); }
+    if (joy->cur & JOY_BTN_X) { font_move(10+3*12, y+10); font_printf("X"); }
 
     if (joy->cur & JOY_BTN_L1) { font_move(10+0*18, y+20); font_printf("L1"); }
     if (joy->cur & JOY_BTN_R1) { font_move(10+1*18, y+20); font_printf("R1"); }
@@ -139,8 +139,9 @@ static void draw_player(struct GAME_STATE *game)
 static void draw_room(struct GAME_STATE *game)
 {
     struct DRAW_ROOM_INFO *info = draw_room_init_frame(&draw_frame_arena, game);
+    unsigned int anim_step = run_state.anim_step;
 
-    draw_room_bg(info);
+    draw_room_bg(info, anim_step);
     RUN_PERF(room_bg_us);
 
     draw_player(game);
@@ -153,7 +154,7 @@ static void draw_room(struct GAME_STATE *game)
     }
     RUN_PERF(enemies_us);
 
-    draw_room_fg(info);
+    draw_room_fg(info, anim_step);
     RUN_PERF(room_fg_us);
 
     if (run_state.display.show_perf) {

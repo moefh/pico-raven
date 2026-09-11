@@ -64,9 +64,10 @@ struct GAME_STATE {
 };
 
 struct JOYSTICK;
+struct RAVEN_ROOM_TRIGGER_INFO;
 
 void game_main_loop(struct GAME_STATE *game, struct JOYSTICK *joy);
-int game_check_player_trigger(struct GAME_STATE *game, uint32_t trigger_type_flags);
+const struct RAVEN_ROOM_TRIGGER_INFO * game_check_player_trigger(struct GAME_STATE *game, uint32_t trigger_type_flags);
 void game_spawn_room_enemies(struct GAME_STATE *game);
 void game_update_room_enemies(struct GAME_STATE *game);
 

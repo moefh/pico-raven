@@ -2,6 +2,7 @@
 
 #include "enemy.h"
 #include "collision.h"
+#include "run_state.h"
 
 #include "lib/joystick.h"
 #include "lib/mem.h"
@@ -10,6 +11,7 @@ enum ENEMY_TYPE {
     ENEMY_TYPE_WALKER,
     ENEMY_TYPE_CHILLER,
     ENEMY_TYPE_HOPPER,
+    ENEMY_TYPE_FLOATER,
 };
 
 enum WALKER_STATE {
@@ -33,6 +35,10 @@ enum HOPPER_STATE {
     HOPPER_STATE_POUNCE_JUMP,
 };
 
+enum FLOATER_STATE {
+    FLOATER_STATE_FLOAT,
+};
+
 enum ENEMY_ANIM_LOOP {
     ENEMY_ANIM_LOOP_STAND,
     ENEMY_ANIM_LOOP_RUN,
@@ -42,6 +48,8 @@ enum ENEMY_ANIM_LOOP {
     ENEMY_ANIM_LOOP_BLINK,
     ENEMY_ANIM_LOOP_SPLAT,
     ENEMY_ANIM_LOOP_PREP_JUMP,
+    ENEMY_ANIM_LOOP_EXPLODE,
+    ENEMY_ANIM_LOOP_FLOAT,
 };
 
 static int is_at_animation_end(struct RAVEN_CHARACTER *enemy)
@@ -364,6 +372,36 @@ static void update_hopper(struct GAME_STATE *game, int enemy_index)
     set_hopper_anim_loop(enemy);
 }
 
+/* ================================================================ */
+/* === FLOATER ==================================================== */
+/* ================================================================ */
+
+static void init_floater(struct GAME_STATE *game, int enemy_index)
+{
+    struct RAVEN_CHARACTER *enemy = &game->enemies[enemy_index];
+    enemy->state = FLOATER_STATE_FLOAT;
+
+    struct RAVEN_ENEMY_CONTROL *control = &game->enemies_control[enemy_index];
+    control->dx = 0;
+    control->dy = 0;
+    control->wait = enemy->y;
+
+    enemy->anim_loop = ENEMY_ANIM_LOOP_FLOAT;
+}
+
+static void update_floater(struct GAME_STATE *game, int enemy_index)
+{
+    struct RAVEN_CHARACTER *enemy = &game->enemies[enemy_index];
+    struct RAVEN_ENEMY_CONTROL *control = &game->enemies_control[enemy_index];
+
+    static const int8_t float_delta[] = { 0, -1, -2, -2, -1, 0, 1, 2, 2, 1 };
+    enemy->y = control->wait + float_delta[(run_state.anim_step / 16) % (sizeof(float_delta) / sizeof(*float_delta))];
+}
+
+/* ================================================================ */
+/* ================================================================ */
+/* ================================================================ */
+
 static void update_sprite_info(struct RAVEN_CHARACTER *enemy)
 {
     const struct RAVEN_SPRITE_ANIMATION_LOOP *loop = &enemy->anim->loops[enemy->anim_loop];
@@ -405,6 +443,7 @@ void enemy_init(struct GAME_STATE *game, int enemy_index, const struct RAVEN_ROO
     case ENEMY_TYPE_WALKER: init_walker(game, enemy_index); break;
     case ENEMY_TYPE_CHILLER: init_chiller(game, enemy_index); break;
     case ENEMY_TYPE_HOPPER: init_hopper(game, enemy_index); break;
+    case ENEMY_TYPE_FLOATER: init_floater(game, enemy_index); break;
     default: enemy->anim_loop = ENEMY_ANIM_LOOP_STAND; break;
     }
 
@@ -420,6 +459,7 @@ void enemy_update(struct GAME_STATE *game, int enemy_index)
     case ENEMY_TYPE_WALKER: update_walker(game, enemy_index); break;
     case ENEMY_TYPE_CHILLER: update_chiller(game, enemy_index); break;
     case ENEMY_TYPE_HOPPER: update_hopper(game, enemy_index); break;
+    case ENEMY_TYPE_FLOATER: update_floater(game, enemy_index); break;
     }
 
     enemy->anim_frame += enemy->anim->loops[enemy->anim_loop].frame_adv + 1; // [0-255] -> [1-256]

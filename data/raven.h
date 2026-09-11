@@ -88,6 +88,7 @@ struct RAVEN_MAP {
     int16_t para_w;
     int16_t para_h;
     const struct RAVEN_IMAGE *tileset;
+    const struct RAVEN_TILE_ANIMATION *animation;
     const uint8_t *tiles;
 };
 
@@ -217,6 +218,21 @@ struct RAVEN_WORLD {
 
 #endif /* RAVEN_SKIP_STRUCTS_WORLD */
 
+#ifndef RAVEN_SKIP_STRUCTS_TILE_ANIMATION
+
+struct RAVEN_TILE_ANIMATION_LOOP {
+    uint8_t start;
+    uint8_t len;
+};
+
+struct RAVEN_TILE_ANIMATION {
+    const struct RAVEN_IMAGE *parent_tileset;
+    const struct RAVEN_IMAGE *anim_tileset;
+    const struct RAVEN_TILE_ANIMATION_LOOP loops[256];
+};
+
+#endif /* RAVEN_SKIP_STRUCTS_TILE_ANIMATION */
+
 #ifndef RAVEN_SKIP_ROOM_SCRIPT
 
 struct RAVEN_STATE;
@@ -238,6 +254,7 @@ extern const struct RAVEN_IMAGE raven_tilesets[];
 extern const struct RAVEN_IMAGE raven_sprites[];
 extern const struct RAVEN_MAP raven_maps[];
 extern const struct RAVEN_SPRITE_ANIMATION raven_sprite_animations[];
+extern const struct RAVEN_TILE_ANIMATION raven_tile_animations[];
 extern const struct RAVEN_ROOM raven_rooms[];
 
 #if RAVEN_ADD_ROOM_SCRIPTS

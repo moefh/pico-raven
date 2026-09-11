@@ -1,7 +1,8 @@
 #include <stdio.h>
 
-#include "game.h"
 #include "collision.h"
+#include "game.h"
+#include "run_state.h"
 
 uint8_t collision_get_room_tile_at(struct GAME_STATE *game, int tx, int ty)
 {
@@ -12,7 +13,12 @@ uint8_t collision_get_room_tile_at(struct GAME_STATE *game, int tx, int ty)
         int map_tx = tx - mi.x;
         int map_ty = ty - mi.y;
         if (map_tx >= 0 && map_ty >= 0 && map_tx < mi.map->w && map_ty < mi.map->h) {
-            return mi.map->tiles[mi.map->w*mi.map->h*2 + mi.map->w*map_ty + map_tx];
+            uint8_t tile = mi.map->tiles[mi.map->w*mi.map->h*2 + mi.map->w*map_ty + map_tx];
+            if (run_state.room_deactivated && (tile >> 4) >= 8 && (tile >> 4) <= 14) {
+                return TILE_FX_FREE;
+            } else {
+                return tile & 0x0f;
+            }
         }
     }
     return TILE_FX_BLOCK;

@@ -37,7 +37,7 @@ const struct RAVEN_ROOM_TRIGGER_INFO *game_get_trigger_from_id(int room_id, int 
     return NULL;
 }
 
-int game_check_player_trigger(struct GAME_STATE *game, uint32_t trigger_type_flags)
+const struct RAVEN_ROOM_TRIGGER_INFO *game_check_player_trigger(struct GAME_STATE *game, uint32_t trigger_type_flags)
 {
     int p1_x = game->player.x + game->player.anim->collision.w/2;
     int p1_y = game->player.y + 8;
@@ -63,10 +63,10 @@ int game_check_player_trigger(struct GAME_STATE *game, uint32_t trigger_type_fla
         }
         if ((p1_x >= tr->x && p1_x < tr->x + tr_w && p1_y >= tr->y && p1_y < tr->y + tr_h) ||
             (p2_x >= tr->x && p2_x < tr->x + tr_w && p2_y >= tr->y && p2_y < tr->y + tr_h)) {
-            return tr_index;
+            return tr;
         }
     }
-    return -1;
+    return NULL;
 }
 
 void game_spawn_room_enemies(struct GAME_STATE *game)
@@ -147,6 +147,7 @@ static void load_room(struct GAME_STATE *game, uint32_t room_id)
     draw_room_init_room(game);
     game->num_enemies = 0;
     run_state.room_doors_enabled = 1;
+    run_state.room_deactivated = 0;
     const struct RAVEN_ROOM_SCRIPT *script_table = raven_room_script_table[room_id];
     if (script_table) {
         script_table->init(room_id, game);
@@ -205,17 +206,24 @@ static void process_joy_input(struct GAME_STATE *game, struct JOYSTICK *joy)
         run_state.mod.index = (run_state.mod.index+1) % RAVEN_MOD_COUNT;
         msg_mod_play(&raven_mods[run_state.mod.index], run_state.mod.volume>>4, true);
     }
-    if (JOY_BTN_PRESSED(joy, JOY_BTN_B)) {
+    if (JOY_BTN_PRESSED(joy, JOY_BTN_Y)) {
         game->player.shadow_enabled = 1 - game->player.shadow_enabled;
         if (game->player.shadow_enabled) {
             sprite_shadow_clear();
         }
     }
-    if (JOY_BTN_PRESSED(joy, JOY_BTN_C)) {
+    if (JOY_BTN_PRESSED(joy, JOY_BTN_Y)) {
         msg_sfx_play_once(0, &raven_sfxs[0], 0x10, 0x3<<10);
     }
-    if (JOY_BTN_PRESSED(joy, JOY_BTN_D)) {
+    if (JOY_BTN_PRESSED(joy, JOY_BTN_A)) {
         run_state.display.show_perf = (run_state.display.show_perf + 1) % 3;
+    }
+
+    if (JOY_BTN_PRESSED(joy, JOY_BTN_X)) {
+        const struct RAVEN_ROOM_TRIGGER_INFO *tr = game_check_player_trigger(game, 1<<RAVEN_ROOM_TRIGGER_TYPE_TRAP);
+        if (tr != NULL && tr->trap.type == 0) {
+            run_state.room_deactivated = 1;
+        }
     }
 
     if (JOY_BTN_PRESSED(joy, JOY_BTN_START)) {
@@ -231,6 +239,8 @@ static void process_joy_input(struct GAME_STATE *game, struct JOYSTICK *joy)
 
 static void update_game_state(struct GAME_STATE *game, struct JOYSTICK *joy)
 {
+    run_state.anim_step++;
+
     // advance message display timers
     if (run_state.display.msg_mod_event_frames_left > 0) run_state.display.msg_mod_event_frames_left--;
     if (run_state.display.msg_load_frames_left > 0) run_state.display.msg_load_frames_left--;
@@ -242,9 +252,8 @@ static void update_game_state(struct GAME_STATE *game, struct JOYSTICK *joy)
 
     // update room
     if (run_state.room_doors_enabled) {
-        int door_index = game_check_player_trigger(game, 1<<RAVEN_ROOM_TRIGGER_TYPE_DOOR);
-        if (door_index >= 0) {
-            const struct RAVEN_ROOM_TRIGGER_INFO *door = &raven_rooms[game->room_id].triggers[door_index];
+        const struct RAVEN_ROOM_TRIGGER_INFO *door = game_check_player_trigger(game, 1<<RAVEN_ROOM_TRIGGER_TYPE_DOOR);
+        if (door != NULL) {
             run_state.room_transition.enabled = true;
             run_state.room_transition.frame = 0;
             run_state.room_transition.src_room_id = game->room_id;

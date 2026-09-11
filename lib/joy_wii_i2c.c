@@ -52,8 +52,8 @@ static void read_state(struct JOYSTICK *joy)
                         ((nun.x >  20) ? JOY_BTN_RIGHT : 0) |
                         ((nun.y >  20) ? JOY_BTN_UP    : 0) |
                         ((nun.y < -20) ? JOY_BTN_DOWN  : 0) |
-                        (nun.c         ? JOY_BTN_A     : 0) |
-                        (nun.z         ? JOY_BTN_B     : 0));
+                        (nun.c         ? JOY_BTN_B     : 0) |
+                        (nun.z         ? JOY_BTN_A     : 0));
         }
         break;
 
@@ -65,10 +65,10 @@ static void read_state(struct JOYSTICK *joy)
                         (cl.right ? JOY_BTN_RIGHT  : 0) |
                         (cl.up    ? JOY_BTN_UP     : 0) |
                         (cl.down  ? JOY_BTN_DOWN   : 0) |
-                        (cl.b     ? JOY_BTN_A      : 0) |
-                        (cl.y     ? JOY_BTN_B      : 0) |
-                        (cl.a     ? JOY_BTN_C      : 0) |
-                        (cl.x     ? JOY_BTN_D      : 0) |
+                        (cl.b     ? JOY_BTN_B      : 0) |
+                        (cl.y     ? JOY_BTN_Y      : 0) |
+                        (cl.a     ? JOY_BTN_A      : 0) |
+                        (cl.x     ? JOY_BTN_X      : 0) |
                         (cl.zl    ? JOY_BTN_L1     : 0) |
                         (cl.zr    ? JOY_BTN_R1     : 0) |
                         (cl.d_lt  ? JOY_BTN_L2     : 0) |
