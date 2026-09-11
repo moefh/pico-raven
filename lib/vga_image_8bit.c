@@ -546,7 +546,7 @@ static void draw_image(const struct VGA_IMAGE *img, const uint32_t *data, int im
         }
     } else {
         switch (img_x % 4) {
-        case 0: for (int y = 0; y < height; y++) { draw_image_line0(d, s, width); d += d_stride; } break;
+        case 0: for (int y = 0; y < height; y++) { draw_image_line0(d, s, width); d += d_stride; s += s_stride; } break;
         case 1: for (int y = 0; y < height; y++) { draw_image_line1(d, s, width, skip_first); d += d_stride; s += s_stride; } break;
         case 2: for (int y = 0; y < height; y++) { draw_image_line2(d, s, width, skip_first); d += d_stride; s += s_stride; } break;
         case 3: for (int y = 0; y < height; y++) { draw_image_line3(d, s, width, skip_first); d += d_stride; s += s_stride; } break;
