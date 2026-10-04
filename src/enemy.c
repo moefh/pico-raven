@@ -85,7 +85,7 @@ static int fall(struct GAME_STATE *game, int enemy_index)
         .w = enemy->anim->collision.w,
         .h = enemy->anim->collision.h,
     };
-    int flags = collision_move(game, &rect, control->dx>>8, control->dy>>8);
+    int flags = collision_move(&rect, control->dx>>8, control->dy>>8);
     enemy->x = rect.x;
     enemy->y = rect.y;
 
@@ -104,7 +104,7 @@ static int walk_but_turn_on_bump_or_edge(struct GAME_STATE *game, int enemy_inde
         .w = enemy->anim->collision.w,
         .h = enemy->anim->collision.h,
     };
-    if (collision_move(game, &check_fall_rect, 0, 1) == 0) {
+    if (collision_move(&check_fall_rect, 0, 1) == 0) {
         enemy->direction = ! enemy->direction;
         enemy->anim_frame = 0;
         return 1;
@@ -117,7 +117,7 @@ static int walk_but_turn_on_bump_or_edge(struct GAME_STATE *game, int enemy_inde
         .w = enemy->anim->collision.w,
         .h = enemy->anim->collision.h,
     };
-    int collision = collision_move(game, &rect, control->dx >> 8, 0);
+    int collision = collision_move(&rect, control->dx >> 8, 0);
     if (collision != 0 && collision != COLLISION_FLAGS_RAMP) {
         enemy->direction = ! enemy->direction;
         enemy->anim_frame = 0;
@@ -166,12 +166,12 @@ static void update_walker(struct GAME_STATE *game, int enemy_index)
         .w = enemy->anim->collision.w,
         .h = enemy->anim->collision.h,
     };
-    if (collision_move(game, &rect, 0, 1) == 0) {
+    if (collision_move(&rect, 0, 1) == 0) {
         enemy->x -= dx;
         enemy->direction = ! enemy->direction;
         enemy->anim_frame = 0;
     } else {
-        int collision = collision_move(game, &rect, dx, 0);
+        int collision = collision_move(&rect, dx, 0);
         if (collision != 0 && collision != COLLISION_FLAGS_RAMP) {
             enemy->direction = ! enemy->direction;
             enemy->anim_frame = 0;

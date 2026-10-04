@@ -2,6 +2,7 @@
 #define COLLISION_H_FILE
 
 #include "game_data.h"
+#include "run_state.h"
 
 #define COLLISION_FLAGS_RAMP  (1<<0)
 #define COLLISION_FLAGS_DOWN  (1<<1)
@@ -27,12 +28,16 @@ struct COLLISION_RECT {
 
 struct GAME_STATE;
 
-int collision_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int dx, int dy);
-uint8_t collision_get_room_tile_at(struct GAME_STATE *game, int tx, int ty);
+int collision_move(struct COLLISION_RECT *rect, int dx, int dy);
 
 static inline int collision_is_point_in_rect(int x, int y, struct COLLISION_RECT *rect)
 {
     return x >= rect->x && y >= rect->y && x < rect->x + rect->w && y < rect->y + rect->h;
+}
+
+static inline uint8_t collision_get_room_tile_at(int tx, int ty)
+{
+    return run_state.fx_tiles[ty * run_state.room_tiles_w + tx] & 0x0f;
 }
 
 #endif /* COLLISION_H_FILE */

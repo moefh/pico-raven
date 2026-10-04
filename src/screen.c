@@ -136,9 +136,38 @@ static void draw_player(struct GAME_STATE *game)
                          game->player.sprite_x - run_state.screen_x, game->player.sprite_y - run_state.screen_y, 1);
 }
 
+static void draw_room_items(struct GAME_STATE *game, const struct RAVEN_ROOM *room)
+{
+    for (int i = 0; i < room->num_triggers; i++) {
+        const struct RAVEN_IMAGE *sprite = NULL;
+        const struct RAVEN_ROOM_TRIGGER_INFO *trg = &room->triggers[i];
+        switch (trg->type) {
+        case RAVEN_ROOM_TRIGGER_TYPE_GET_UPGRADE:
+            if (trg->get_upgrade.upgrade_id != 0xffff && ! game_has_upgrade(game, trg->get_upgrade.upgrade_id)) {
+                sprite = raven_table_upgrades[trg->get_upgrade.upgrade_id].sprite;
+            }
+            break;
+        case RAVEN_ROOM_TRIGGER_TYPE_GET_COLLECTABLE:
+            if (trg->get_collectable.collectable_id != 0xffff && ! game_has_collectable(game, trg->get_collectable.collectable_id)) {
+                sprite = raven_table_collectables[trg->get_collectable.collectable_id].sprite;
+            }
+            break;
+        case RAVEN_ROOM_TRIGGER_TYPE_GET_PICKUP:
+            if (trg->get_pickup.pickup_id != 0xffff && ! game_has_pickup(game, trg->get_pickup.pickup_id)) {
+                sprite = raven_table_pickups[trg->get_pickup.pickup_id].sprite;
+            }
+            break;
+        }
+        if (sprite != NULL) {
+            vga_image_draw_frame(sprite, 0, trg->x - run_state.screen_x, trg->y - run_state.screen_y, 1);
+        }
+    }
+}
+
 static void draw_room(struct GAME_STATE *game)
 {
     struct DRAW_ROOM_INFO *info = draw_room_init_frame(&draw_frame_arena, game);
+    const struct RAVEN_ROOM *room = &raven_rooms[game->room_id];
     unsigned int anim_step = run_state.anim_step;
 
     draw_room_bg(info, anim_step);
@@ -147,6 +176,7 @@ static void draw_room(struct GAME_STATE *game)
     draw_player(game);
     RUN_PERF(player_us);
 
+    draw_room_items(game, room);
     for (int i = 0; i < game->num_enemies; i++) {
         struct RAVEN_CHARACTER *enemy = &game->enemies[i];
         vga_image_draw_frame(enemy->sprite, enemy->sprite_frame,

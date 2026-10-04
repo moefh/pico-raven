@@ -1,32 +1,8 @@
 #include <stdio.h>
 
 #include "collision.h"
-#include "game.h"
-#include "run_state.h"
 
-uint8_t collision_get_room_tile_at(struct GAME_STATE *game, int tx, int ty)
-{
-    const struct RAVEN_ROOM *room = &raven_rooms[game->room_id];
-
-    for (int m = 0; m < room->num_maps; m++) {
-        struct RAVEN_ROOM_MAP_INFO mi = room->maps[m];
-        int map_tx = tx - mi.x;
-        int map_ty = ty - mi.y;
-        if (map_tx >= 0 && map_ty >= 0 && map_tx < mi.map->w && map_ty < mi.map->h) {
-            uint8_t tile = mi.map->tiles[mi.map->w*mi.map->h*2 + mi.map->w*map_ty + map_tx];
-            if (run_state.room_deactivated && (tile >> 4) >= 8 && (tile >> 4) <= 14) {
-                return TILE_FX_FREE;
-            } else {
-                return tile & 0x0f;
-            }
-        }
-    }
-    return TILE_FX_BLOCK;
-}
-
-// ========================================================================
-
-static int h_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int sx)
+static int h_move(struct COLLISION_RECT *rect, int sx)
 {
     if (rect->x + sx < 0) {
         rect->x = 0;
@@ -39,7 +15,7 @@ static int h_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int sx)
     int16_t ty_top = rect->y / TILE_SIZE;
     int16_t ty_bot = (rect->y + rect->h - 1) / TILE_SIZE;
     for (int ty = ty_bot; ty >= ty_top; ty--) {
-        uint8_t tile = collision_get_room_tile_at(game, tx, ty);
+        uint8_t tile = collision_get_room_tile_at(tx, ty);
         switch (tile) {
         case TILE_FX_BLOCK:
             return (sx > 0) ? COLLISION_FLAGS_RIGHT : COLLISION_FLAGS_LEFT;
@@ -166,7 +142,7 @@ static int h_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int sx)
     return 0;
 }
 
-static int v_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int sy)
+static int v_move(struct COLLISION_RECT *rect, int sy)
 {
     if (rect->y + sy < 0) {
         rect->y = 0;
@@ -180,7 +156,7 @@ static int v_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int sy)
     int16_t tx_right = (rect->x + rect->w - 1) / TILE_SIZE;
 
     for (int tx = tx_left; tx <= tx_right; tx++) {
-        uint8_t tile = collision_get_room_tile_at(game, tx, ty);
+        uint8_t tile = collision_get_room_tile_at(tx, ty);
         switch (tile) {
         case TILE_FX_BLOCK:
             return (sy < 0) ? COLLISION_FLAGS_UP : COLLISION_FLAGS_DOWN;
@@ -304,7 +280,7 @@ static int v_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int sy)
     return 0;
 }
 
-int collision_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int dx, int dy)
+int collision_move(struct COLLISION_RECT *rect, int dx, int dy)
 {
     if (dx == 0 && dy == 0) return 0;
     int sx = (dx < 0) ? -1 : 1;
@@ -314,7 +290,7 @@ int collision_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int dx,
         int flags = 0;
         if (dy < 0) dy = -dy;
         for (int y = 0; y < dy; y++) {
-            flags |= v_move(game, rect, sy);
+            flags |= v_move(rect, sy);
         }
         return flags;
     }
@@ -322,7 +298,7 @@ int collision_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int dx,
         if (dx < 0) dx = -dx;
         int flags = 0;
         for (int x = 0; x < dx; x++) {
-            flags |= h_move(game, rect, sx);
+            flags |= h_move(rect, sx);
         }
         return flags;
     }
@@ -340,12 +316,12 @@ int collision_move(struct GAME_STATE *game, struct COLLISION_RECT *rect, int dx,
         int e2 = 2 * error;
         if (e2 >= dy) {
             error += dy;
-            flags |= h_move(game, rect, sx);
+            flags |= h_move(rect, sx);
             x += sx;
         }
         if (e2 <= dx) {
             error += dx;
-            flags |= v_move(game, rect, sy);
+            flags |= v_move(rect, sy);
             y += sy;
         }
     }

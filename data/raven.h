@@ -150,6 +150,13 @@ enum RAVEN_ROOM_TRIGGER_TYPE {
    RAVEN_ROOM_TRIGGER_TYPE_PLAYER_SPAWN,
    RAVEN_ROOM_TRIGGER_TYPE_ENEMY_SPAWN,
    RAVEN_ROOM_TRIGGER_TYPE_TRAP,
+   RAVEN_ROOM_TRIGGER_TYPE_WALL_BUTTON,
+   RAVEN_ROOM_TRIGGER_TYPE_FLOOR_BUTTON,
+   RAVEN_ROOM_TRIGGER_TYPE_UNBLOCK_EFFECT,
+   RAVEN_ROOM_TRIGGER_TYPE_DISABLE_ANIMATION_EFFECT,
+   RAVEN_ROOM_TRIGGER_TYPE_GET_UPGRADE,
+   RAVEN_ROOM_TRIGGER_TYPE_GET_COLLECTABLE,
+   RAVEN_ROOM_TRIGGER_TYPE_GET_PICKUP,
 };
 
 struct RAVEN_ROOM_MAP_INFO {
@@ -187,6 +194,38 @@ struct RAVEN_ROOM_TRIGGER_INFO {
             uint16_t height;
             uint16_t type;
         } trap;
+        struct {
+            uint16_t width;
+            uint16_t height;
+            uint16_t effect_id;
+            uint16_t flag_id;
+            uint16_t req_collectable_id;
+        } wall_button;
+        struct {
+            uint16_t width;
+            uint16_t height;
+            uint16_t effect_id;
+            uint16_t flag_id;
+        } floor_button;
+        struct {
+            uint16_t width;
+            uint16_t height;
+            uint16_t effect_id;
+        } unblock_effect;
+        struct {
+            uint16_t width;
+            uint16_t height;
+            uint16_t effect_id;
+        } disable_animation_effect;
+        struct {
+            uint16_t upgrade_id;
+        } get_upgrade;
+        struct {
+            uint16_t collectable_id;
+        } get_collectable;
+        struct {
+            uint16_t pickup_id;
+        } get_pickup;
     };
 };
 
@@ -233,6 +272,14 @@ struct RAVEN_TILE_ANIMATION {
 
 #endif /* RAVEN_SKIP_STRUCTS_TILE_ANIMATION */
 
+#ifndef RAVEN_SKIP_STRUCTS_DATA_TABLES
+
+struct RAVEN_TABLE_ITEM {
+    const struct RAVEN_IMAGE *sprite;
+};
+
+#endif /* RAVEN_SKIP_STRUCTS_DATA_TABLES */
+
 #ifndef RAVEN_SKIP_ROOM_SCRIPT
 
 struct RAVEN_STATE;
@@ -256,6 +303,9 @@ extern const struct RAVEN_MAP raven_maps[];
 extern const struct RAVEN_SPRITE_ANIMATION raven_sprite_animations[];
 extern const struct RAVEN_TILE_ANIMATION raven_tile_animations[];
 extern const struct RAVEN_ROOM raven_rooms[];
+extern const struct RAVEN_TABLE_ITEM raven_table_upgrades[];
+extern const struct RAVEN_TABLE_ITEM raven_table_collectables[];
+extern const struct RAVEN_TABLE_ITEM raven_table_pickups[];
 
 #if RAVEN_ADD_ROOM_SCRIPTS
 extern const struct RAVEN_ROOM_SCRIPT *raven_room_script_table[];

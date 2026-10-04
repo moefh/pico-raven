@@ -63,13 +63,22 @@ struct GAME_RUN_STATE {
     int fps_count;
     unsigned int anim_step;
 
+    void (*update_room)(struct GAME_STATE *);
+
     int32_t room_w;
     int32_t room_h;
     int32_t screen_x;
     int32_t screen_y;
-    uint8_t room_doors_enabled;
-    uint8_t room_deactivated;
-    void (*update_room)(struct GAME_STATE *);
+
+    int32_t room_tiles_w;
+    int32_t room_tiles_h;
+    int32_t room_tiles_para_w;
+    int32_t room_tiles_para_h;
+    uint8_t *fg_tiles;
+    uint8_t *bg_tiles;
+    uint8_t *fx_tiles;
+    uint8_t *para_tiles;
+    uint8_t tiles[0x10000];
 };
 
 void run_state_init(void);

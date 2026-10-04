@@ -23,8 +23,14 @@
 
 static struct SAVEGAME tmp_savegame;
 static const struct SAVEGAME new_savegame = {
-    .room_id = RAVEN_ROOM_ID_WEST__LAB__FLOOR0,
+    .room_id = RAVEN_ROOM_ID_WEST__LAB,
 };
+
+static int clamp(int val, int min, int max) {
+    if (val < min) return min;
+    if (val > max) return max;
+    return val;
+}
 
 const struct RAVEN_ROOM_TRIGGER_INFO *game_get_trigger_from_id(int room_id, int trigger_id)
 {
@@ -39,10 +45,10 @@ const struct RAVEN_ROOM_TRIGGER_INFO *game_get_trigger_from_id(int room_id, int 
 
 const struct RAVEN_ROOM_TRIGGER_INFO *game_check_player_trigger(struct GAME_STATE *game, uint32_t trigger_type_flags)
 {
-    int p1_x = game->player.x + game->player.anim->collision.w/2;
-    int p1_y = game->player.y + 8;
-    int p2_x = game->player.x + game->player.anim->collision.w/2;
-    int p2_y = game->player.y + game->player.anim->collision.h/2 - 9;
+    int p1_x = game->player.x;
+    int p1_y = game->player.y;
+    int p2_x = game->player.x + game->player.anim->collision.w - 1;
+    int p2_y = game->player.y + game->player.anim->collision.h - 1;
 
     const struct RAVEN_ROOM *room = &raven_rooms[game->room_id];
     for (int tr_index = 0; tr_index < room->num_triggers; tr_index++) {
@@ -52,17 +58,38 @@ const struct RAVEN_ROOM_TRIGGER_INFO *game_check_player_trigger(struct GAME_STAT
         }
         int tr_w = 0;
         int tr_h = 0;
-        if (tr->type == RAVEN_ROOM_TRIGGER_TYPE_DOOR) {
+        switch (tr->type) {
+        case RAVEN_ROOM_TRIGGER_TYPE_GET_UPGRADE:
+        case RAVEN_ROOM_TRIGGER_TYPE_GET_COLLECTABLE:
+        case RAVEN_ROOM_TRIGGER_TYPE_GET_PICKUP:
+            tr_w = 16;
+            tr_h = 16;
+            break;
+        case RAVEN_ROOM_TRIGGER_TYPE_DOOR:
             tr_w = 16;
             tr_h = 64;
-        } else if (tr->type == RAVEN_ROOM_TRIGGER_TYPE_TRAP) {
+            break;
+        case RAVEN_ROOM_TRIGGER_TYPE_WALL_BUTTON:
+            tr_w = tr->wall_button.width;
+            tr_h = tr->wall_button.height;
+            break;
+        case RAVEN_ROOM_TRIGGER_TYPE_FLOOR_BUTTON:
+            tr_w = tr->floor_button.width;
+            tr_h = tr->floor_button.height;
+            break;
+        case RAVEN_ROOM_TRIGGER_TYPE_TRAP:
             tr_w = tr->trap.width;
             tr_h = tr->trap.height;
-        } else {
+            break;
+        default:
             continue;
         }
-        if ((p1_x >= tr->x && p1_x < tr->x + tr_w && p1_y >= tr->y && p1_y < tr->y + tr_h) ||
-            (p2_x >= tr->x && p2_x < tr->x + tr_w && p2_y >= tr->y && p2_y < tr->y + tr_h)) {
+
+        int t1_x = tr->x;
+        int t2_x = tr->x + tr_w - 1;
+        int t1_y = tr->y;
+        int t2_y = tr->y + tr_h - 1;
+        if (p1_x <= t2_x && t1_x <= p2_x && p1_y <= t2_y && t1_y <= p2_y) {
             return tr;
         }
     }
@@ -101,14 +128,15 @@ static void screen_follow_player(struct GAME_STATE *game)
 
 static int place_player_at_door_transition(struct GAME_STATE *game)
 {
-    const struct RAVEN_ROOM_TRIGGER_INFO *door = game_get_trigger_from_id(game->room_id, run_state.room_transition.dst_door_trigger_id);
+    const struct RAVEN_ROOM_TRIGGER_INFO *door = game_get_trigger_from_id(game->room_id,
+                                                                          run_state.room_transition.dst_door_trigger_id);
     if (door == NULL) {
         return -1;
     }
 
     int tile_x = door->x / TILE_SIZE;
     int tile_y = door->y / TILE_SIZE;
-    if (collision_get_room_tile_at(game, tile_x + 1, tile_y) == TILE_FX_FREE) {
+    if (collision_get_room_tile_at(tile_x + 1, tile_y) == TILE_FX_FREE) {
         game->player.x = door->x + TILE_SIZE + 2;
         if (run_state.room_transition.player_dx < 0) run_state.room_transition.player_dx = 0;
     } else {
@@ -124,30 +152,78 @@ static int place_player_at_door_transition(struct GAME_STATE *game)
     return 0;
 }
 
+static void load_room_tiles(const struct RAVEN_ROOM *room)
+{
+    run_state.room_w = 0;
+    run_state.room_h = 0;
+    run_state.room_tiles_w = 0;
+    run_state.room_tiles_h = 0;
+    run_state.room_tiles_para_w = 0;
+    run_state.room_tiles_para_h = 0;
+    for (int i = 0; i < room->num_maps; i++) {
+        int w = room->maps[i].x + room->maps[i].map->w;
+        int h = room->maps[i].y + room->maps[i].map->h;
+        if (run_state.room_tiles_w < w) run_state.room_tiles_w = w;
+        if (run_state.room_tiles_h < h) run_state.room_tiles_h = h;
+        if (run_state.room_w < w*TILE_SIZE) run_state.room_w = w*TILE_SIZE;
+        if (run_state.room_h < h*TILE_SIZE) run_state.room_h = h*TILE_SIZE;
+    }
+
+    memset(run_state.tiles, 0xff, sizeof(run_state.tiles));
+    run_state.bg_tiles = &run_state.tiles[0*run_state.room_tiles_w*run_state.room_tiles_h];
+    run_state.fg_tiles = &run_state.tiles[1*run_state.room_tiles_w*run_state.room_tiles_h];
+    run_state.fx_tiles = &run_state.tiles[2*run_state.room_tiles_w*run_state.room_tiles_h];
+    run_state.para_tiles = &run_state.tiles[3*run_state.room_tiles_w*run_state.room_tiles_h];
+
+    // copy (bg, fg, fx) from all maps
+    for (int i = 0; i < room->num_maps; i++) {
+        const struct RAVEN_ROOM_MAP_INFO *room_map = &room->maps[i];
+
+        int map_w = room_map->map->w;
+        int map_h = room_map->map->h;
+        int src_line = 0;
+        int dst_line = run_state.room_tiles_w*room_map->y + room_map->x;
+        const uint8_t *map_tiles = room_map->map->tiles;
+        for (int y = 0; y < map_h; y++) {
+            memcpy(run_state.fg_tiles + dst_line, map_tiles + 0*map_w*map_h + src_line, map_w);
+            memcpy(run_state.bg_tiles + dst_line, map_tiles + 1*map_w*map_h + src_line, map_w);
+            memcpy(run_state.fx_tiles + dst_line, map_tiles + 2*map_w*map_h + src_line, map_w);
+            src_line += map_w;
+            dst_line += run_state.room_tiles_w;
+        }
+    }
+
+    // copy parallax from first map only
+    if (room->num_maps > 0) {
+        const struct RAVEN_ROOM_MAP_INFO *room_map = &room->maps[0];
+        run_state.room_tiles_para_w = room_map->map->para_w;
+        run_state.room_tiles_para_h = room_map->map->para_h;
+        int map_para_w = run_state.room_tiles_para_w;
+        int map_para_h = run_state.room_tiles_para_h;
+        int src_para_line = 0;
+        int dst_para_line = 0;
+        const uint8_t *map_para_tiles = room_map->map->tiles + 3*room_map->map->w*room_map->map->h;
+        for (int y = 0; y < map_para_h; y++) {
+            memcpy(run_state.para_tiles + dst_para_line, map_para_tiles + src_para_line, map_para_w);
+            src_para_line += map_para_w;
+            dst_para_line += run_state.room_tiles_w;
+        }
+    }
+}
+
 static void load_room(struct GAME_STATE *game, uint32_t room_id)
 {
     const struct RAVEN_ROOM *room = &raven_rooms[room_id];
     game->room_id = room_id;
-
-    // calc room width
-    run_state.room_w = 0;
-    run_state.room_h = 0;
-    for (int i = 0; i < room->num_maps; i++) {
-        int w = (room->maps[i].x + room->maps[i].map->w) * TILE_SIZE;
-        int h = (room->maps[i].y + room->maps[i].map->h) * TILE_SIZE;
-        if (run_state.room_w < w) run_state.room_w = w;
-        if (run_state.room_h < h) run_state.room_h = h;
-    }
+    load_room_tiles(room);
 
     // setup player
     player_init(game);
     player_control_init(game);
 
     // setup room
-    draw_room_init_room(game);
     game->num_enemies = 0;
-    run_state.room_doors_enabled = 1;
-    run_state.room_deactivated = 0;
+    memset(game->pickups, 0, sizeof(game->pickups));
     const struct RAVEN_ROOM_SCRIPT *script_table = raven_room_script_table[room_id];
     if (script_table) {
         script_table->init(room_id, game);
@@ -219,13 +295,6 @@ static void process_joy_input(struct GAME_STATE *game, struct JOYSTICK *joy)
         run_state.display.show_perf = (run_state.display.show_perf + 1) % 3;
     }
 
-    if (JOY_BTN_PRESSED(joy, JOY_BTN_X)) {
-        const struct RAVEN_ROOM_TRIGGER_INFO *tr = game_check_player_trigger(game, 1<<RAVEN_ROOM_TRIGGER_TYPE_TRAP);
-        if (tr != NULL && tr->trap.type == 0) {
-            run_state.room_deactivated = 1;
-        }
-    }
-
     if (JOY_BTN_PRESSED(joy, JOY_BTN_START)) {
         if (JOY_BTN_HELD(joy, JOY_BTN_SELECT)) {
             save_game(game);
@@ -235,6 +304,90 @@ static void process_joy_input(struct GAME_STATE *game, struct JOYSTICK *joy)
     }
 
     player_control_update(game, joy);
+}
+
+void game_activate_effect(struct GAME_STATE *game, uint32_t effect_id)
+{
+    const struct RAVEN_ROOM *room = &raven_rooms[game->room_id];
+    for (int tr_index = 0; tr_index < room->num_triggers; tr_index++) {
+        const struct RAVEN_ROOM_TRIGGER_INFO *tr = &room->triggers[tr_index];
+        switch (tr->type) {
+        case RAVEN_ROOM_TRIGGER_TYPE_UNBLOCK_EFFECT:
+            if (tr->unblock_effect.effect_id == effect_id) {
+                int xs = clamp(tr->x / TILE_SIZE, 0, run_state.room_tiles_w-1);
+                int ys = clamp(tr->y / TILE_SIZE, 0, run_state.room_tiles_h-1);
+                int xe = clamp((tr->x + tr->unblock_effect.width - 1) / TILE_SIZE, 0, run_state.room_tiles_w-1);
+                int ye = clamp((tr->y + tr->unblock_effect.height - 1) / TILE_SIZE, 0, run_state.room_tiles_h-1);
+                for (int y = ys; y <= ye; y++) {
+                    for (int x = xs; x <= xe; x++) {
+                        run_state.fx_tiles[run_state.room_tiles_w*y + x] |= 0x0f;
+                    }
+                }
+            }
+            break;
+        case RAVEN_ROOM_TRIGGER_TYPE_DISABLE_ANIMATION_EFFECT:
+            if (tr->disable_animation_effect.effect_id == effect_id) {
+                int xs = clamp(tr->x / TILE_SIZE, 0, run_state.room_tiles_w-1);
+                int ys = clamp(tr->y / TILE_SIZE, 0, run_state.room_tiles_h-1);
+                int xe = clamp((tr->x + tr->disable_animation_effect.width - 1) / TILE_SIZE, 0, run_state.room_tiles_w-1);
+                int ye = clamp((tr->y + tr->disable_animation_effect.height - 1) / TILE_SIZE, 0, run_state.room_tiles_h-1);
+                for (int y = ys; y <= ye; y++) {
+                    for (int x = xs; x <= xe; x++) {
+                        run_state.fx_tiles[run_state.room_tiles_w*y + x] |= 0xf0;
+                    }
+                }
+            }
+            break;
+        }
+    }
+}
+
+static void update_check_room_items(struct GAME_STATE *game, struct JOYSTICK *joy)
+{
+    uint32_t item_flags = ((1u<<RAVEN_ROOM_TRIGGER_TYPE_GET_UPGRADE) |
+                           (1u<<RAVEN_ROOM_TRIGGER_TYPE_GET_PICKUP));
+    const struct RAVEN_ROOM_TRIGGER_INFO *tr = game_check_player_trigger(game, item_flags);
+    if (tr != NULL) {
+        switch (tr->type) {
+        case RAVEN_ROOM_TRIGGER_TYPE_GET_UPGRADE:
+            game_set_upgrade(game, tr->get_upgrade.upgrade_id);
+            break;
+        case RAVEN_ROOM_TRIGGER_TYPE_GET_PICKUP:
+            game_set_pickup(game, tr->get_pickup.pickup_id);
+            break;
+        }
+    }
+
+    if (JOY_BTN_PRESSED(joy, JOY_BTN_X)) {
+        const struct RAVEN_ROOM_TRIGGER_INFO *tr = game_check_player_trigger(game, 1u<<RAVEN_ROOM_TRIGGER_TYPE_GET_COLLECTABLE);
+        if (tr != NULL) {
+            game_set_collectable(game, tr->get_collectable.collectable_id);
+        }
+    }
+}
+
+static void update_check_room_buttons(struct GAME_STATE *game, struct JOYSTICK *joy)
+{
+    uint32_t button_flags = ((1u<<RAVEN_ROOM_TRIGGER_TYPE_WALL_BUTTON) |
+                             (1u<<RAVEN_ROOM_TRIGGER_TYPE_FLOOR_BUTTON));
+    const struct RAVEN_ROOM_TRIGGER_INFO *tr = game_check_player_trigger(game, button_flags);
+    if (tr != NULL) {
+        switch (tr->type) {
+        case RAVEN_ROOM_TRIGGER_TYPE_FLOOR_BUTTON:
+            game_activate_effect(game, tr->floor_button.effect_id);
+            game_set_flag(game, tr->floor_button.flag_id);
+            break;
+
+        case RAVEN_ROOM_TRIGGER_TYPE_WALL_BUTTON:
+            if (JOY_BTN_PRESSED(joy, JOY_BTN_X) &&
+                (tr->wall_button.req_collectable_id == 0xffff ||
+                 game_has_collectable(game, tr->wall_button.req_collectable_id))) {
+                game_activate_effect(game, tr->wall_button.effect_id);
+                game_set_flag(game, tr->wall_button.flag_id);
+            }
+            break;
+        }
+    }
 }
 
 static void update_game_state(struct GAME_STATE *game, struct JOYSTICK *joy)
@@ -251,22 +404,22 @@ static void update_game_state(struct GAME_STATE *game, struct JOYSTICK *joy)
     screen_follow_player(game);
 
     // update room
-    if (run_state.room_doors_enabled) {
-        const struct RAVEN_ROOM_TRIGGER_INFO *door = game_check_player_trigger(game, 1<<RAVEN_ROOM_TRIGGER_TYPE_DOOR);
-        if (door != NULL) {
-            run_state.room_transition.enabled = true;
-            run_state.room_transition.frame = 0;
-            run_state.room_transition.src_room_id = game->room_id;
-            run_state.room_transition.src_door_trigger_id = door->trigger_id;
-            run_state.room_transition.dst_room_id = (uint16_t) (door->door.dest_room - raven_rooms);
-            run_state.room_transition.dst_door_trigger_id = door->door.dest_trigger_id;
-            run_state.room_transition.player_x = game->player.x - door->x;
-            run_state.room_transition.player_y = game->player.y - door->y;
-            run_state.room_transition.player_state = game->player.state;
-            run_state.room_transition.player_direction = game->player.direction;
-            run_state.room_transition.player_dx = game->player_control.dx;
-            run_state.room_transition.player_dy = game->player_control.dy;
-        }
+    update_check_room_items(game, joy);
+    update_check_room_buttons(game, joy);
+    const struct RAVEN_ROOM_TRIGGER_INFO *door = game_check_player_trigger(game, 1<<RAVEN_ROOM_TRIGGER_TYPE_DOOR);
+    if (door != NULL) {
+        run_state.room_transition.enabled = true;
+        run_state.room_transition.frame = 0;
+        run_state.room_transition.src_room_id = game->room_id;
+        run_state.room_transition.src_door_trigger_id = door->trigger_id;
+        run_state.room_transition.dst_room_id = (uint16_t) (door->door.dest_room - raven_rooms);
+        run_state.room_transition.dst_door_trigger_id = door->door.dest_trigger_id;
+        run_state.room_transition.player_x = game->player.x - door->x;
+        run_state.room_transition.player_y = game->player.y - door->y;
+        run_state.room_transition.player_state = game->player.state;
+        run_state.room_transition.player_direction = game->player.direction;
+        run_state.room_transition.player_dx = game->player_control.dx;
+        run_state.room_transition.player_dy = game->player_control.dy;
     }
     if (run_state.update_room) {
         run_state.update_room(game);

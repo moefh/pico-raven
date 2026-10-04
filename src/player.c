@@ -76,7 +76,7 @@ void player_update(struct GAME_STATE *game, struct JOYSTICK *joy)
         .w = pl->anim->collision.w,
         .h = pl->anim->collision.h,
     };
-    int collision = collision_move(game, &rect, dx, dy);
+    int collision = collision_move(&rect, dx, dy);
     if (collision & COLLISION_FLAGS_DOWN) {
         plc->dy = 0;
         if (JOY_BTN_HELD(joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
@@ -95,7 +95,7 @@ void player_update(struct GAME_STATE *game, struct JOYSTICK *joy)
         }
     } else if (pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK || pl->state == PLAYER_STATE_CROUCH) {
         int y = rect.y;
-        if (collision_move(game, &rect, 0, 1) == 0) {
+        if (collision_move(&rect, 0, 1) == 0) {
             pl->state = PLAYER_STATE_FALL;
             pl->anim_frame = 0;
         }

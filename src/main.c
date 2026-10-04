@@ -59,5 +59,6 @@ int main(void)
     }
 
     printf("pos-init free mem: %lu/%lu\n", sysinfo_heap_free(), sysinfo_heap_total());
+
     game_main_loop(&game_state, &joy);
 }

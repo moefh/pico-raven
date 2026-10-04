@@ -61,6 +61,10 @@ struct GAME_STATE {
     struct RAVEN_ENEMY_CONTROL enemies_control[GAME_MAX_ENEMIES];
 
     int32_t room_id;
+    uint32_t upgrades;
+    uint32_t collectables[8];
+    uint32_t flags[8];
+    uint32_t pickups[8];
 };
 
 struct JOYSTICK;
@@ -70,5 +74,60 @@ void game_main_loop(struct GAME_STATE *game, struct JOYSTICK *joy);
 const struct RAVEN_ROOM_TRIGGER_INFO * game_check_player_trigger(struct GAME_STATE *game, uint32_t trigger_type_flags);
 void game_spawn_room_enemies(struct GAME_STATE *game);
 void game_update_room_enemies(struct GAME_STATE *game);
+
+void game_activate_effect(struct GAME_STATE *game, uint32_t effect_id);
+
+static inline bool game_has_upgrade(struct GAME_STATE *game, uint32_t upgrade_id) {
+    return (game->upgrades & (1<<upgrade_id)) != 0;
+}
+static inline bool game_has_collectable(struct GAME_STATE *game, uint32_t collectable_id) {
+    uint32_t index = collectable_id / 32;
+    uint32_t bit = collectable_id % 32;
+    if (index < sizeof(game->collectables)/sizeof(game->collectables[0])) {
+        return (game->collectables[index] & (1<<bit)) != 0;
+    }
+    return false;
+}
+static inline bool game_has_flag(struct GAME_STATE *game, uint32_t flag_id) {
+    uint32_t index = flag_id / 32;
+    uint32_t bit = flag_id % 32;
+    if (index < sizeof(game->flags)/sizeof(game->flags[0])) {
+        return (game->flags[index] & (1<<bit)) != 0;
+    }
+    return false;
+}
+static inline bool game_has_pickup(struct GAME_STATE *game, uint32_t pickup_id) {
+    uint32_t index = pickup_id / 32;
+    uint32_t bit = pickup_id % 32;
+    if (index < sizeof(game->pickups)/sizeof(game->pickups[0])) {
+        return (game->pickups[index] & (1<<bit)) != 0;
+    }
+    return false;
+}
+
+static inline void game_set_upgrade(struct GAME_STATE *game, uint32_t upgrade_id) {
+    game->upgrades |= 1u << upgrade_id;
+}
+static inline void game_set_collectable(struct GAME_STATE *game, uint32_t collectable_id) {
+    uint32_t index = collectable_id / 32;
+    uint32_t bit = collectable_id % 32;
+    if (index < sizeof(game->collectables)/sizeof(game->collectables[0])) {
+        game->collectables[index] |= 1u << bit;
+    }
+}
+static inline void game_set_flag(struct GAME_STATE *game, uint32_t flag_id) {
+    uint32_t index = flag_id / 32;
+    uint32_t bit = flag_id % 32;
+    if (index < sizeof(game->flags)/sizeof(game->flags[0])) {
+        game->flags[index] |= 1u << bit;
+    }
+}
+static inline void game_set_pickup(struct GAME_STATE *game, uint32_t pickup_id) {
+    uint32_t index = pickup_id / 32;
+    uint32_t bit = pickup_id % 32;
+    if (index < sizeof(game->pickups)/sizeof(game->pickups[0])) {
+        game->pickups[index] |= 1u << bit;
+    }
+}
 
 #endif /* GAME_H_FILE */
