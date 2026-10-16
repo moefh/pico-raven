@@ -85,8 +85,7 @@ struct RAVEN_PAL_SPRITE {
 struct RAVEN_MAP {
     int16_t w;
     int16_t h;
-    int16_t para_w;
-    int16_t para_h;
+    uint8_t has_bb_layer;
     const struct RAVEN_IMAGE *tileset;
     const struct RAVEN_TILE_ANIMATION *animation;
     const uint8_t *tiles;
@@ -229,11 +228,19 @@ struct RAVEN_ROOM_TRIGGER_INFO {
     };
 };
 
+struct RAVEN_ROOM_PARALLAX {
+    const struct RAVEN_IMAGE *tileset;
+    uint16_t width;
+    uint16_t height;
+    const uint8_t *tiles;
+};
+
 struct RAVEN_ROOM {
     uint16_t num_maps;
     uint16_t num_triggers;
     const struct RAVEN_ROOM_MAP_INFO *maps;
     const struct RAVEN_ROOM_TRIGGER_INFO *triggers;
+    struct RAVEN_ROOM_PARALLAX parallax;
 };
 
 #endif /* RAVEN_SKIP_STRUCTS_ROOM */

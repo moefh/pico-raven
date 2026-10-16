@@ -13,6 +13,18 @@ struct DRAW_ROOM_MAP_INFO {
     const struct RAVEN_MAP *map;
 };
 
+struct DRAW_ROOM_PARA_INFO {
+    int tile_x_first;
+    int tile_x_last;
+    int tile_y_first;
+    int tile_y_last;
+
+    int screen_x;
+    int screen_y;
+
+    const struct RAVEN_ROOM_PARALLAX *room_parallax;
+};
+
 struct DRAW_ROOM_INFO {
     // first/last tile indices
     int tile_x_first;
@@ -26,13 +38,15 @@ struct DRAW_ROOM_INFO {
 
     int num_maps;
     struct DRAW_ROOM_MAP_INFO maps[DRAW_ROOM_INFO_MAX_MAPS];
+
+    struct DRAW_ROOM_PARA_INFO parallax;
 };
 
 struct MEM_ARENA;
 struct GAME_STATE;
 
 struct DRAW_ROOM_INFO *draw_room_init_frame(struct MEM_ARENA *mem, struct GAME_STATE *game);
-void draw_room_bg(struct DRAW_ROOM_INFO *info, unsigned int anim_step);
-void draw_room_fg(struct DRAW_ROOM_INFO *info, unsigned int anim_step);
+void draw_room_bg(struct DRAW_ROOM_INFO *info);
+void draw_room_fg(struct DRAW_ROOM_INFO *info);
 
 #endif /* DRAW_ROOM_H_FILE */

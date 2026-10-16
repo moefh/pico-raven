@@ -37,6 +37,9 @@ static inline int collision_is_point_in_rect(int x, int y, struct COLLISION_RECT
 
 static inline uint8_t collision_get_room_tile_at(int tx, int ty)
 {
+    if (tx < 0 || ty < 0 || tx >= run_state.room_tiles_w || ty >= run_state.room_tiles_h) {
+        return TILE_FX_BLOCK;
+    }
     return run_state.fx_tiles[ty * run_state.room_tiles_w + tx] & 0x0f;
 }
 

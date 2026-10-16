@@ -7,9 +7,10 @@
 
 #define GAME_MAX_ENEMIES  32
 
-#define DX_ACCEL      ((int32_t) 0x100)
-#define DX_FRICTION   ((int32_t) 0x0c0)
-#define DX_MAX        ((int32_t) 0x700)
+#define DX_ACCEL          ((int32_t) 0x100)
+#define DX_FLOOR_FRICTION ((int32_t) 0x0c0)
+#define DX_AIR_FRICTION   ((int32_t) 0x010)
+#define DX_MAX            ((int32_t) 0x700)
 
 #define DY_GRAVITY    ((int32_t) 0x0c0)
 #define DY_MAX        ((int32_t) 0x900)
@@ -21,6 +22,7 @@ enum PLAYER_STATE {
     PLAYER_STATE_WALK,
     PLAYER_STATE_JUMP,
     PLAYER_STATE_FALL,
+    PLAYER_STATE_FALL2,
     PLAYER_STATE_CROUCH,
 };
 

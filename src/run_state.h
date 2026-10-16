@@ -70,14 +70,13 @@ struct GAME_RUN_STATE {
     int32_t screen_x;
     int32_t screen_y;
 
+    bool has_bb;
     int32_t room_tiles_w;
     int32_t room_tiles_h;
-    int32_t room_tiles_para_w;
-    int32_t room_tiles_para_h;
     uint8_t *fg_tiles;
     uint8_t *bg_tiles;
     uint8_t *fx_tiles;
-    uint8_t *para_tiles;
+    uint8_t *bb_tiles;
     uint8_t tiles[0x10000];
 };
 

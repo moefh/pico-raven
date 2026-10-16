@@ -158,8 +158,6 @@ static void load_room_tiles(const struct RAVEN_ROOM *room)
     run_state.room_h = 0;
     run_state.room_tiles_w = 0;
     run_state.room_tiles_h = 0;
-    run_state.room_tiles_para_w = 0;
-    run_state.room_tiles_para_h = 0;
     for (int i = 0; i < room->num_maps; i++) {
         int w = room->maps[i].x + room->maps[i].map->w;
         int h = room->maps[i].y + room->maps[i].map->h;
@@ -173,7 +171,8 @@ static void load_room_tiles(const struct RAVEN_ROOM *room)
     run_state.bg_tiles = &run_state.tiles[0*run_state.room_tiles_w*run_state.room_tiles_h];
     run_state.fg_tiles = &run_state.tiles[1*run_state.room_tiles_w*run_state.room_tiles_h];
     run_state.fx_tiles = &run_state.tiles[2*run_state.room_tiles_w*run_state.room_tiles_h];
-    run_state.para_tiles = &run_state.tiles[3*run_state.room_tiles_w*run_state.room_tiles_h];
+    run_state.bb_tiles = &run_state.tiles[3*run_state.room_tiles_w*run_state.room_tiles_h];
+    run_state.has_bb = false;
 
     // copy (bg, fg, fx) from all maps
     for (int i = 0; i < room->num_maps; i++) {
@@ -188,25 +187,12 @@ static void load_room_tiles(const struct RAVEN_ROOM *room)
             memcpy(run_state.fg_tiles + dst_line, map_tiles + 0*map_w*map_h + src_line, map_w);
             memcpy(run_state.bg_tiles + dst_line, map_tiles + 1*map_w*map_h + src_line, map_w);
             memcpy(run_state.fx_tiles + dst_line, map_tiles + 2*map_w*map_h + src_line, map_w);
+            if (room_map->map->has_bb_layer) {
+                memcpy(run_state.bb_tiles + dst_line, map_tiles + 3*map_w*map_h + src_line, map_w);
+                run_state.has_bb = true;
+            }
             src_line += map_w;
             dst_line += run_state.room_tiles_w;
-        }
-    }
-
-    // copy parallax from first map only
-    if (room->num_maps > 0) {
-        const struct RAVEN_ROOM_MAP_INFO *room_map = &room->maps[0];
-        run_state.room_tiles_para_w = room_map->map->para_w;
-        run_state.room_tiles_para_h = room_map->map->para_h;
-        int map_para_w = run_state.room_tiles_para_w;
-        int map_para_h = run_state.room_tiles_para_h;
-        int src_para_line = 0;
-        int dst_para_line = 0;
-        const uint8_t *map_para_tiles = room_map->map->tiles + 3*room_map->map->w*room_map->map->h;
-        for (int y = 0; y < map_para_h; y++) {
-            memcpy(run_state.para_tiles + dst_para_line, map_para_tiles + src_para_line, map_para_w);
-            src_para_line += map_para_w;
-            dst_para_line += run_state.room_tiles_w;
         }
     }
 }

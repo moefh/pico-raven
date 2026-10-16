@@ -15,6 +15,7 @@ void player_update_sprite_info(struct GAME_STATE *game)
     case PLAYER_STATE_WALK:   pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_RUN; break;
     case PLAYER_STATE_JUMP:   pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_JUMP; break;
     case PLAYER_STATE_FALL:   pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_FALL; break;
+    case PLAYER_STATE_FALL2:  pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_FALL2; break;
     case PLAYER_STATE_CROUCH: pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_CROUCH; break;
     }
     const struct RAVEN_SPRITE_ANIMATION_LOOP *loop = &pl->anim->loops[pl->anim_loop];
@@ -105,6 +106,14 @@ void player_update(struct GAME_STATE *game, struct JOYSTICK *joy)
     pl->x = rect.x;
     pl->y = rect.y;
     pl->anim_frame += pl->anim->loops[pl->anim_loop].frame_adv + 1; // [0-255] -> [1-256]
+    if (pl->state == PLAYER_STATE_FALL) {
+        // reaching end of animation in the "FALL" state moves to the "FALL2" state
+        const struct RAVEN_SPRITE_ANIMATION_LOOP *loop = &pl->anim->loops[pl->anim_loop];
+        if ((pl->anim_frame >> 8) >= loop->length) {
+            pl->state = PLAYER_STATE_FALL2;
+            pl->anim_frame = 0;
+        }
+    }
     player_update_sprite_info(game);
 }
 
@@ -132,13 +141,22 @@ void player_control_update(struct GAME_STATE *game, struct JOYSTICK *joy)
         }
         if (plc->dx != 0) {
             if (plc->dx > 0) {
-                plc->dx -= DX_FRICTION;
+                plc->dx -= DX_FLOOR_FRICTION;
                 if (plc->dx < 0) plc->dx = 0;
             }
             if (plc->dx < 0) {
-                plc->dx += DX_FRICTION;
+                plc->dx += DX_FLOOR_FRICTION;
                 if (plc->dx > 0) plc->dx = 0;
             }
+        }
+    } else if (plc->dx != 0) {
+        if (plc->dx > 0) {
+            plc->dx -= DX_AIR_FRICTION;
+            if (plc->dx < 0) plc->dx = 0;
+        }
+        if (plc->dx < 0) {
+            plc->dx += DX_AIR_FRICTION;
+            if (plc->dx > 0) plc->dx = 0;
         }
     }
 

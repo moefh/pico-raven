@@ -168,9 +168,8 @@ static void draw_room(struct GAME_STATE *game)
 {
     struct DRAW_ROOM_INFO *info = draw_room_init_frame(&draw_frame_arena, game);
     const struct RAVEN_ROOM *room = &raven_rooms[game->room_id];
-    unsigned int anim_step = run_state.anim_step;
 
-    draw_room_bg(info, anim_step);
+    draw_room_bg(info);
     RUN_PERF(room_bg_us);
 
     draw_player(game);
@@ -184,7 +183,7 @@ static void draw_room(struct GAME_STATE *game)
     }
     RUN_PERF(enemies_us);
 
-    draw_room_fg(info, anim_step);
+    draw_room_fg(info);
     RUN_PERF(room_fg_us);
 
     if (run_state.display.show_perf) {
