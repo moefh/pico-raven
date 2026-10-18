@@ -62,6 +62,7 @@ struct RAVEN_IMAGE {
     int32_t height;
     int32_t stride;
     int32_t num_frames;
+    int32_t has_mirrors;
     const uint32_t *data;
 };
 
@@ -73,7 +74,8 @@ struct RAVEN_PAL_SPRITE {
     int16_t width;
     int16_t height;
     int16_t num_frames;
-    uint16_t bpp;
+    uint8_t has_mirrors;
+    uint8_t bpp;
     uint8_t palette[16];
     const uint8_t *data;
 };
@@ -148,11 +150,11 @@ enum RAVEN_ROOM_TRIGGER_TYPE {
    RAVEN_ROOM_TRIGGER_TYPE_DOOR,
    RAVEN_ROOM_TRIGGER_TYPE_PLAYER_SPAWN,
    RAVEN_ROOM_TRIGGER_TYPE_ENEMY_SPAWN,
-   RAVEN_ROOM_TRIGGER_TYPE_TRAP,
    RAVEN_ROOM_TRIGGER_TYPE_WALL_BUTTON,
-   RAVEN_ROOM_TRIGGER_TYPE_FLOOR_BUTTON,
-   RAVEN_ROOM_TRIGGER_TYPE_UNBLOCK_EFFECT,
-   RAVEN_ROOM_TRIGGER_TYPE_DISABLE_ANIMATION_EFFECT,
+   RAVEN_ROOM_TRIGGER_TYPE_DETECTOR_BUTTON,
+   RAVEN_ROOM_TRIGGER_TYPE_UNBLOCK_TILES,
+   RAVEN_ROOM_TRIGGER_TYPE_DISABLE_ANIMATION,
+   RAVEN_ROOM_TRIGGER_TYPE_REMOVE_ENEMY,
    RAVEN_ROOM_TRIGGER_TYPE_GET_UPGRADE,
    RAVEN_ROOM_TRIGGER_TYPE_GET_COLLECTABLE,
    RAVEN_ROOM_TRIGGER_TYPE_GET_PICKUP,
@@ -175,6 +177,8 @@ struct RAVEN_ROOM_TRIGGER_INFO {
             uint16_t data1;
             uint16_t data2;
             uint16_t data3;
+            uint16_t data4;
+            uint16_t data5;
         } any;
         struct {
             uint8_t direction;
@@ -182,48 +186,54 @@ struct RAVEN_ROOM_TRIGGER_INFO {
         struct {
             const struct RAVEN_ROOM *dest_room;
             uint16_t dest_trigger_id;
+            uint16_t req_flag_id;
         } door;
         struct {
-            const struct RAVEN_SPRITE_ANIMATION *animation;
+            uint16_t enemy_id;
             uint16_t enemy_type;
+            const struct RAVEN_SPRITE_ANIMATION *animation;
             uint8_t direction;
+            uint16_t req_flag_id;
         } enemy_spawn;
         struct {
             uint16_t width;
             uint16_t height;
-            uint16_t type;
-        } trap;
-        struct {
-            uint16_t width;
-            uint16_t height;
-            uint16_t effect_id;
-            uint16_t flag_id;
+            uint16_t set_effect_id;
+            uint16_t set_flag_id;
+            uint16_t req_flag_id;
             uint16_t req_collectable_id;
         } wall_button;
         struct {
             uint16_t width;
             uint16_t height;
-            uint16_t effect_id;
-            uint16_t flag_id;
-        } floor_button;
+            uint16_t set_effect_id;
+            uint16_t set_flag_id;
+            uint16_t req_flag_id;
+            uint16_t req_collectable_id;
+        } detector_button;
         struct {
             uint16_t width;
             uint16_t height;
-            uint16_t effect_id;
-        } unblock_effect;
+            uint16_t on_effect_id;
+        } unblock_tiles;
         struct {
             uint16_t width;
             uint16_t height;
-            uint16_t effect_id;
-        } disable_animation_effect;
+            uint16_t on_effect_id;
+        } disable_animation;
         struct {
-            uint16_t upgrade_id;
+            uint16_t enemy_id;
+            uint16_t on_effect_id;
+        } remove_enemy;
+        struct {
+            uint16_t get_upgrade_id;
         } get_upgrade;
         struct {
-            uint16_t collectable_id;
+            uint16_t get_collectable_id;
         } get_collectable;
         struct {
-            uint16_t pickup_id;
+            uint16_t get_pickup_id;
+            uint16_t respawn_delay;
         } get_pickup;
     };
 };

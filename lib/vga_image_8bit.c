@@ -4,6 +4,8 @@
 
 #pragma GCC optimize ("-O3")
 
+struct VGA_IMAGE_SCREEN vga_image_screen;
+
 #define GET_PIX0_TRANSP_MASK(block) ((((block) & 0x000000ff) != 0x00000038) ? 0x000000ff : 0)
 #define GET_PIX1_TRANSP_MASK(block) ((((block) & 0x0000ff00) != 0x00003800) ? 0x0000ff00 : 0)
 #define GET_PIX2_TRANSP_MASK(block) ((((block) & 0x00ff0000) != 0x00380000) ? 0x00ff0000 : 0)
@@ -514,12 +516,12 @@ static void draw_image(const struct VGA_IMAGE *img, const uint32_t *data, int im
     const uint32_t *img_start = data;
 
     int height = img->height;
-    if (img_y < 0) {
-        img_start += img->stride * (-img_y);
-        height += img_y;
-        img_y = 0;
+    if (img_y < vga_image_screen.y_min) {
+        img_start += img->stride * (vga_image_screen.y_min - img_y);
+        height -= vga_image_screen.y_min - img_y;
+        img_y = vga_image_screen.y_min;
     }
-    if (height > vga_screen.height - img_y) height = vga_screen.height - img_y;
+    if (height > vga_image_screen.y_max - img_y) height = vga_image_screen.y_max - img_y;
     if (height <= 0) return;
 
     bool skip_first = false;
@@ -530,13 +532,13 @@ static void draw_image(const struct VGA_IMAGE *img, const uint32_t *data, int im
         img_x = ((unsigned int) img_x) % 4;
         skip_first = true;
     }
-    if (width > vga_screen.width - img_x) width = vga_screen.width - img_x;
+    if (width > vga_image_screen.x_max - img_x) width = vga_image_screen.x_max - img_x;
     if (width <= 0) return;
 
     const uint32_t *s = img_start;
     int s_stride = img->stride;
     uint32_t *d = vga_screen.lines[img_y] + img_x/4;
-    int d_stride = vga_screen.width / 4;
+    int d_stride = vga_image_screen.x_max / 4;
     if (transparent) {
         switch (img_x % 4) {
         case 0: for (int y = 0; y < height; y++) { draw_image_line_tr0(d, s, width); d += d_stride; s += s_stride; } break;
@@ -559,12 +561,12 @@ static void draw_image_mask(const struct VGA_IMAGE *img, const uint32_t *data, i
     const uint32_t *img_start = data;
 
     int height = img->height;
-    if (img_y < 0) {
-        img_start += img->stride * (-img_y);
-        height += img_y;
-        img_y = 0;
+    if (img_y < vga_image_screen.y_min) {
+        img_start += img->stride * (vga_image_screen.y_min - img_y);
+        height -= vga_image_screen.y_min - img_y;
+        img_y = vga_image_screen.y_min;
     }
-    if (height > vga_screen.height - img_y) height = vga_screen.height - img_y;
+    if (height > vga_image_screen.y_max - img_y) height = vga_image_screen.y_max - img_y;
     if (height <= 0) return;
 
     bool skip_first = false;
@@ -575,19 +577,26 @@ static void draw_image_mask(const struct VGA_IMAGE *img, const uint32_t *data, i
         img_x = ((unsigned int) img_x) % 4;
         skip_first = true;
     }
-    if (width > vga_screen.width - img_x) width = vga_screen.width - img_x;
+    if (width > vga_image_screen.x_max - img_x) width = vga_image_screen.x_max - img_x;
     if (width <= 0) return;
 
     const uint32_t *s = img_start;
     int s_stride = img->stride;
     uint32_t *d = vga_screen.lines[img_y] + img_x/4;
-    int d_stride = vga_screen.width / 4;
+    int d_stride = vga_image_screen.x_max / 4;
     switch (img_x % 4) {
     case 0: for (int y = 0; y < height; y++) { draw_image_line_mask0(d, s, width, colors); d += d_stride; s += s_stride; } break;
     case 1: for (int y = 0; y < height; y++) { draw_image_line_mask1(d, s, width, colors, skip_first); d += d_stride; s += s_stride; } break;
     case 2: for (int y = 0; y < height; y++) { draw_image_line_mask2(d, s, width, colors, skip_first); d += d_stride; s += s_stride; } break;
     case 3: for (int y = 0; y < height; y++) { draw_image_line_mask3(d, s, width, colors, skip_first); d += d_stride; s += s_stride; } break;
     }
+}
+
+void vga_image_init(void)
+{
+    vga_image_screen.x_max = vga_screen.width;
+    vga_image_screen.y_min = 0;
+    vga_image_screen.y_max = vga_screen.height;
 }
 
 void vga_image_draw_frame_mask(const struct VGA_IMAGE *img, int frame, int x, int y, uint8_t color)

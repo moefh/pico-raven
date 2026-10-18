@@ -45,6 +45,12 @@ void font_printf(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2)));
 #endif
 
+extern const struct VGA_FONT *vga_font;
+extern uint32_t vga_font_x, vga_font_y;
+extern enum FONT_ALIGNMENT vga_font_alignment;
+extern uint8_t vga_font_color;
+extern uint8_t vga_font_border[2];
+
 #ifdef __cplusplus
 }
 #endif

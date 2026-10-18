@@ -16,8 +16,10 @@ void draw_room_init_room(struct GAME_STATE *game)
 struct DRAW_ROOM_INFO *draw_room_init_frame(struct MEM_ARENA *mem, struct GAME_STATE *game)
 {
     struct DRAW_ROOM_INFO *dri = mem_add(mem, struct DRAW_ROOM_INFO);
+    int32_t screen_width = vga_image_screen.x_max;
+    int32_t screen_height = vga_image_screen.y_max - vga_image_screen.y_min;
 
-    dri->tile_x_last = (run_state.screen_x + vga_screen.width) / TILE_SIZE;
+    dri->tile_x_last = (run_state.screen_x + screen_width) / TILE_SIZE;
     if (run_state.screen_x < 0) {
         dri->tile_x_first = 0;
         dri->screen_x = -run_state.screen_x;
@@ -29,16 +31,16 @@ struct DRAW_ROOM_INFO *draw_room_init_frame(struct MEM_ARENA *mem, struct GAME_S
         dri->screen_x = -(run_state.screen_x % TILE_SIZE);
     }
 
-    dri->tile_y_last = (run_state.screen_y + vga_screen.height) / TILE_SIZE;
+    dri->tile_y_last = (run_state.screen_y + screen_height) / TILE_SIZE;
     if (run_state.screen_y < 0) {
         dri->tile_y_first = 0;
-        dri->screen_y = -run_state.screen_y;
+        dri->screen_y = vga_image_screen.y_min - run_state.screen_y;
     } else {
         dri->tile_y_first = run_state.screen_y / TILE_SIZE;
         if (dri->tile_y_last >= run_state.room_tiles_h) {
             dri->tile_y_last = run_state.room_tiles_h-1;
         }
-        dri->screen_y = -(run_state.screen_y % TILE_SIZE);
+        dri->screen_y = vga_image_screen.y_min - (run_state.screen_y % TILE_SIZE);
     }
 
     const struct RAVEN_ROOM *room = &raven_rooms[game->room_id];
@@ -53,11 +55,11 @@ struct DRAW_ROOM_INFO *draw_room_init_frame(struct MEM_ARENA *mem, struct GAME_S
         mi->map = map_info->map;
     }
 
-    int para_x = run_state.screen_x * (room->parallax.width*TILE_SIZE - vga_screen.width) / (run_state.room_w - vga_screen.width);
-    int para_y = run_state.screen_y * (room->parallax.height*TILE_SIZE - vga_screen.height) / (run_state.room_h - vga_screen.height);
+    int para_x = run_state.screen_x * (room->parallax.width*TILE_SIZE - screen_width) / (run_state.room_w - screen_width);
+    int para_y = run_state.screen_y * (room->parallax.height*TILE_SIZE - screen_height) / (run_state.room_h - screen_height);
     dri->parallax.room_parallax = &room->parallax;
 
-    dri->parallax.tile_x_last = (para_x + vga_screen.width) / TILE_SIZE;
+    dri->parallax.tile_x_last = (para_x + screen_width) / TILE_SIZE;
     if (para_x < 0) {
         dri->parallax.tile_x_first = 0;
         dri->parallax.screen_x = -para_x;
@@ -69,16 +71,16 @@ struct DRAW_ROOM_INFO *draw_room_init_frame(struct MEM_ARENA *mem, struct GAME_S
         dri->parallax.screen_x = -(para_x % TILE_SIZE);
     }
 
-    dri->parallax.tile_y_last = (para_y + vga_screen.height) / TILE_SIZE;
+    dri->parallax.tile_y_last = (para_y + screen_height) / TILE_SIZE;
     if (para_y < 0) {
         dri->parallax.tile_y_first = 0;
-        dri->parallax.screen_y = -para_y;
+        dri->parallax.screen_y = vga_image_screen.y_min - para_y;
     } else {
         dri->parallax.tile_y_first = para_y / TILE_SIZE;
         if (dri->parallax.tile_y_last >= room->parallax.height) {
             dri->parallax.tile_y_last = room->parallax.height - 1;
         }
-        dri->parallax.screen_y = -(para_y % TILE_SIZE);
+        dri->parallax.screen_y = vga_image_screen.y_min - (para_y % TILE_SIZE);
     }
 
     return dri;

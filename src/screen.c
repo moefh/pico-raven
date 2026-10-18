@@ -10,6 +10,7 @@
 #include "sprite_shadow.h"
 
 #include "lib/vga_8bit.h"
+#include "lib/vga_image_8bit.h"
 #include "lib/vga_font_8bit.h"
 #include "lib/compilation_timestamp.h"
 #include "lib/joystick.h"
@@ -50,6 +51,7 @@ int screen_init(void)
         fflush(stdout);
         return -1;
     }
+    vga_image_init();
 
     size_t scratch_size = vga_screen.width * vga_screen.height;
     void *scratch = malloc(scratch_size);
@@ -129,11 +131,14 @@ static void draw_joy_buttons(struct JOYSTICK *joy, int y)
 static void draw_player(struct GAME_STATE *game)
 {
     if (game->player.shadow_enabled) {
-        sprite_shadow_draw(game->player.sprite, run_state.screen_x, run_state.screen_y, sprite_shadow_colors);
+        sprite_shadow_draw(game->player.sprite, sprite_shadow_colors);
     }
 
-    vga_image_draw_frame(game->player.sprite, game->player.sprite_frame,
-                         game->player.sprite_x - run_state.screen_x, game->player.sprite_y - run_state.screen_y, 1);
+    vga_image_draw_frame(game->player.sprite,
+                         game->player.sprite_frame,
+                         game->player.sprite_x - run_state.screen_x,
+                         game->player.sprite_y - run_state.screen_y + vga_image_screen.y_min,
+                         1);
 }
 
 static void draw_room_items(struct GAME_STATE *game, const struct RAVEN_ROOM *room)
@@ -143,23 +148,25 @@ static void draw_room_items(struct GAME_STATE *game, const struct RAVEN_ROOM *ro
         const struct RAVEN_ROOM_TRIGGER_INFO *trg = &room->triggers[i];
         switch (trg->type) {
         case RAVEN_ROOM_TRIGGER_TYPE_GET_UPGRADE:
-            if (trg->get_upgrade.upgrade_id != 0xffff && ! game_has_upgrade(game, trg->get_upgrade.upgrade_id)) {
-                sprite = raven_table_upgrades[trg->get_upgrade.upgrade_id].sprite;
+            if (trg->get_upgrade.get_upgrade_id != 0xffff &&
+                ! game_has_upgrade(game, trg->get_upgrade.get_upgrade_id)) {
+                sprite = raven_table_upgrades[trg->get_upgrade.get_upgrade_id].sprite;
             }
             break;
         case RAVEN_ROOM_TRIGGER_TYPE_GET_COLLECTABLE:
-            if (trg->get_collectable.collectable_id != 0xffff && ! game_has_collectable(game, trg->get_collectable.collectable_id)) {
-                sprite = raven_table_collectables[trg->get_collectable.collectable_id].sprite;
+            if (trg->get_collectable.get_collectable_id != 0xffff
+                && ! game_has_collectable(game, trg->get_collectable.get_collectable_id)) {
+                sprite = raven_table_collectables[trg->get_collectable.get_collectable_id].sprite;
             }
             break;
         case RAVEN_ROOM_TRIGGER_TYPE_GET_PICKUP:
-            if (trg->get_pickup.pickup_id != 0xffff && ! game_has_pickup(game, trg->get_pickup.pickup_id)) {
-                sprite = raven_table_pickups[trg->get_pickup.pickup_id].sprite;
+            if (trg->get_pickup.get_pickup_id != 0xffff && run_state_is_pickup_trigger_enabled(trg->trigger_id)) {
+                sprite = raven_table_pickups[trg->get_pickup.get_pickup_id].sprite;
             }
             break;
         }
         if (sprite != NULL) {
-            vga_image_draw_frame(sprite, 0, trg->x - run_state.screen_x, trg->y - run_state.screen_y, 1);
+            vga_image_draw_frame(sprite, 0, trg->x - run_state.screen_x, trg->y - run_state.screen_y + vga_image_screen.y_min, 1);
         }
     }
 }
@@ -176,10 +183,13 @@ static void draw_room(struct GAME_STATE *game)
     RUN_PERF(player_us);
 
     draw_room_items(game, room);
-    for (int i = 0; i < game->num_enemies; i++) {
-        struct RAVEN_CHARACTER *enemy = &game->enemies[i];
-        vga_image_draw_frame(enemy->sprite, enemy->sprite_frame,
-                             enemy->sprite_x - run_state.screen_x, enemy->sprite_y - run_state.screen_y, 1);
+    for (int i = 0; i < run_state.num_enemies; i++) {
+        struct GAME_ENEMY *enemy = &run_state.enemies[i];
+        vga_image_draw_frame(enemy->sprite,
+                             enemy->sprite_frame,
+                             enemy->sprite_x - run_state.screen_x,
+                             enemy->sprite_y - run_state.screen_y + vga_image_screen.y_min,
+                             1);
     }
     RUN_PERF(enemies_us);
 
@@ -193,14 +203,28 @@ static void draw_room(struct GAME_STATE *game)
         int w = game->player.anim->collision.w;
         int h = game->player.anim->collision.h;
         for (int x = 0; x < w; x++) {
-            vga_screen.lines8[sy][sx+x] = 0x38;
-            vga_screen.lines8[sy+h-1][sx+x] = 0x38;
+            vga_screen.lines8[SCREEN_HEADER_HEIGHT+sy][sx+x] = 0x38;
+            vga_screen.lines8[SCREEN_HEADER_HEIGHT+sy+h-1][sx+x] = 0x38;
         }
         for (int y = 0; y < h; y++) {
-            vga_screen.lines8[sy+y][sx] = 0x38;
-            vga_screen.lines8[sy+y][sx+w-1] = 0x38;
+            vga_screen.lines8[SCREEN_HEADER_HEIGHT+sy+y][sx] = 0x38;
+            vga_screen.lines8[SCREEN_HEADER_HEIGHT+sy+y][sx+w-1] = 0x38;
         }
     }
+}
+
+static void draw_header(struct GAME_STATE *game)
+{
+    (void) game;
+    memset(vga_screen.framebuffer, 0, vga_screen.width * SCREEN_HEADER_HEIGHT);
+
+    const struct RAVEN_IMAGE *energy = &raven_sprites[RAVEN_SPRITE_ID_SCREEN__ENERGY];
+    vga_image_draw_frame(energy, 0, 64, 0, 0);
+
+    const struct RAVEN_IMAGE *explosive = &raven_sprites[RAVEN_SPRITE_ID_SCREEN__EXPLOSIVE];
+    vga_image_draw_frame(explosive, 0, vga_screen.width - explosive->width - 4, 16, 0);
+    font_move(vga_screen.width - explosive->width - 4 - 2*vga_font->w - 1, 20);
+    font_printf("%2d", 3);
 }
 
 void screen_render(struct GAME_STATE *game, struct JOYSTICK *joy)
@@ -208,7 +232,11 @@ void screen_render(struct GAME_STATE *game, struct JOYSTICK *joy)
     mem_clear(&draw_frame_arena);
     //vga_clear_screen(0);
 
+    vga_image_screen.y_min = 0;
+    draw_header(game);
+    vga_image_screen.y_min = SCREEN_HEADER_HEIGHT;
     draw_room(game);
+    vga_image_screen.y_min = 0;
 
     if (run_state.display.show_perf) {
         font_align(FONT_ALIGN_LEFT);

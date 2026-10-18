@@ -7,6 +7,7 @@
 #include "lib/joy_wii_i2c.h"
 #include "lib/joystick.h"
 #include "lib/vga_8bit.h"
+#include "lib/vga_image_8bit.h"
 
 #include "config.h"
 #include "core_msg.h"
@@ -19,7 +20,7 @@
 #include "sprite_shadow.h"
 #include "draw_room.h"
 #include "savegame.h"
-#include "default_room_script.h"
+#include "rooms/default.h"
 
 static struct SAVEGAME tmp_savegame;
 static const struct SAVEGAME new_savegame = {
@@ -73,13 +74,9 @@ const struct RAVEN_ROOM_TRIGGER_INFO *game_check_player_trigger(struct GAME_STAT
             tr_w = tr->wall_button.width;
             tr_h = tr->wall_button.height;
             break;
-        case RAVEN_ROOM_TRIGGER_TYPE_FLOOR_BUTTON:
-            tr_w = tr->floor_button.width;
-            tr_h = tr->floor_button.height;
-            break;
-        case RAVEN_ROOM_TRIGGER_TYPE_TRAP:
-            tr_w = tr->trap.width;
-            tr_h = tr->trap.height;
+        case RAVEN_ROOM_TRIGGER_TYPE_DETECTOR_BUTTON:
+            tr_w = tr->detector_button.width;
+            tr_h = tr->detector_button.height;
             break;
         default:
             continue;
@@ -96,34 +93,17 @@ const struct RAVEN_ROOM_TRIGGER_INFO *game_check_player_trigger(struct GAME_STAT
     return NULL;
 }
 
-void game_spawn_room_enemies(struct GAME_STATE *game)
-{
-    const struct RAVEN_ROOM *room = &raven_rooms[game->room_id];
-    for (int tr_index = 0; tr_index < room->num_triggers; tr_index++) {
-        const struct RAVEN_ROOM_TRIGGER_INFO *tr = &room->triggers[tr_index];
-        if (tr->type == RAVEN_ROOM_TRIGGER_TYPE_ENEMY_SPAWN && game->num_enemies < GAME_MAX_ENEMIES) {
-            int enemy_index = game->num_enemies++;
-            enemy_init(game, enemy_index, tr);
-        }
-    }
-}
-
-void game_update_room_enemies(struct GAME_STATE *game)
-{
-    for (int i = 0; i < game->num_enemies; i++) {
-        enemy_update(game, i);
-    }
-}
-
 static void screen_follow_player(struct GAME_STATE *game)
 {
     // TODO: add slack
-    run_state.screen_x = game->player.x + game->player.sprite->width/2 - 160;
-    run_state.screen_y = game->player.y + game->player.sprite->height/2 - 120;
+    int32_t screen_width = vga_screen.width;
+    int32_t screen_height = vga_screen.height - SCREEN_HEADER_HEIGHT;
+    run_state.screen_x = game->player.x + game->player.sprite->width/2 - screen_width/2;
+    run_state.screen_y = game->player.y + game->player.sprite->height/2 - screen_height/2;
     if (run_state.screen_x < 0) run_state.screen_x = 0;
     if (run_state.screen_y < 0) run_state.screen_y = 0;
-    if (run_state.screen_x >= run_state.room_w - vga_screen.width) run_state.screen_x = run_state.room_w - vga_screen.width;
-    if (run_state.screen_y >= run_state.room_h - vga_screen.height) run_state.screen_y = run_state.room_h - vga_screen.height;
+    if (run_state.screen_x >= run_state.room_w - screen_width) run_state.screen_x = run_state.room_w - screen_width;
+    if (run_state.screen_y >= run_state.room_h - screen_height) run_state.screen_y = run_state.room_h - screen_height;
 }
 
 static int place_player_at_door_transition(struct GAME_STATE *game)
@@ -203,13 +183,13 @@ static void load_room(struct GAME_STATE *game, uint32_t room_id)
     game->room_id = room_id;
     load_room_tiles(room);
 
-    // setup player
+    // reset player
     player_init(game);
     player_control_init(game);
 
-    // setup room
-    game->num_enemies = 0;
-    memset(game->pickups, 0, sizeof(game->pickups));
+    // run room init
+    run_state.num_enemies = 0;
+    run_state.num_pickup_respawns = 0;
     const struct RAVEN_ROOM_SCRIPT *script_table = raven_room_script_table[room_id];
     if (script_table) {
         script_table->init(room_id, game);
@@ -298,12 +278,12 @@ void game_activate_effect(struct GAME_STATE *game, uint32_t effect_id)
     for (int tr_index = 0; tr_index < room->num_triggers; tr_index++) {
         const struct RAVEN_ROOM_TRIGGER_INFO *tr = &room->triggers[tr_index];
         switch (tr->type) {
-        case RAVEN_ROOM_TRIGGER_TYPE_UNBLOCK_EFFECT:
-            if (tr->unblock_effect.effect_id == effect_id) {
+        case RAVEN_ROOM_TRIGGER_TYPE_UNBLOCK_TILES:
+            if (tr->unblock_tiles.on_effect_id == effect_id) {
                 int xs = clamp(tr->x / TILE_SIZE, 0, run_state.room_tiles_w-1);
                 int ys = clamp(tr->y / TILE_SIZE, 0, run_state.room_tiles_h-1);
-                int xe = clamp((tr->x + tr->unblock_effect.width - 1) / TILE_SIZE, 0, run_state.room_tiles_w-1);
-                int ye = clamp((tr->y + tr->unblock_effect.height - 1) / TILE_SIZE, 0, run_state.room_tiles_h-1);
+                int xe = clamp((tr->x + tr->unblock_tiles.width - 1) / TILE_SIZE, 0, run_state.room_tiles_w-1);
+                int ye = clamp((tr->y + tr->unblock_tiles.height - 1) / TILE_SIZE, 0, run_state.room_tiles_h-1);
                 for (int y = ys; y <= ye; y++) {
                     for (int x = xs; x <= xe; x++) {
                         run_state.fx_tiles[run_state.room_tiles_w*y + x] |= 0x0f;
@@ -311,15 +291,30 @@ void game_activate_effect(struct GAME_STATE *game, uint32_t effect_id)
                 }
             }
             break;
-        case RAVEN_ROOM_TRIGGER_TYPE_DISABLE_ANIMATION_EFFECT:
-            if (tr->disable_animation_effect.effect_id == effect_id) {
+        case RAVEN_ROOM_TRIGGER_TYPE_DISABLE_ANIMATION:
+            if (tr->disable_animation.on_effect_id == effect_id) {
                 int xs = clamp(tr->x / TILE_SIZE, 0, run_state.room_tiles_w-1);
                 int ys = clamp(tr->y / TILE_SIZE, 0, run_state.room_tiles_h-1);
-                int xe = clamp((tr->x + tr->disable_animation_effect.width - 1) / TILE_SIZE, 0, run_state.room_tiles_w-1);
-                int ye = clamp((tr->y + tr->disable_animation_effect.height - 1) / TILE_SIZE, 0, run_state.room_tiles_h-1);
+                int xe = clamp((tr->x + tr->disable_animation.width - 1) / TILE_SIZE, 0, run_state.room_tiles_w-1);
+                int ye = clamp((tr->y + tr->disable_animation.height - 1) / TILE_SIZE, 0, run_state.room_tiles_h-1);
                 for (int y = ys; y <= ye; y++) {
                     for (int x = xs; x <= xe; x++) {
                         run_state.fx_tiles[run_state.room_tiles_w*y + x] |= 0xf0;
+                    }
+                }
+            }
+            break;
+
+        case RAVEN_ROOM_TRIGGER_TYPE_REMOVE_ENEMY:
+            if (tr->remove_enemy.on_effect_id == effect_id) {
+                for (int i = 0; i < run_state.num_enemies; i++) {
+                    struct GAME_ENEMY *enemy = &run_state.enemies[i];
+                    if (enemy->id == tr->remove_enemy.enemy_id) {
+                        memmove(&run_state.enemies[i],
+                                &run_state.enemies[i+1],
+                                sizeof(struct GAME_ENEMY) * (run_state.num_enemies-(i+1)));
+                        run_state.num_enemies--;
+                        i--;
                     }
                 }
             }
@@ -331,23 +326,23 @@ void game_activate_effect(struct GAME_STATE *game, uint32_t effect_id)
 static void update_check_room_items(struct GAME_STATE *game, struct JOYSTICK *joy)
 {
     uint32_t item_flags = ((1u<<RAVEN_ROOM_TRIGGER_TYPE_GET_UPGRADE) |
-                           (1u<<RAVEN_ROOM_TRIGGER_TYPE_GET_PICKUP));
+                           (1u<<RAVEN_ROOM_TRIGGER_TYPE_GET_PICKUP) |
+                           (1u<<RAVEN_ROOM_TRIGGER_TYPE_GET_COLLECTABLE));
     const struct RAVEN_ROOM_TRIGGER_INFO *tr = game_check_player_trigger(game, item_flags);
     if (tr != NULL) {
         switch (tr->type) {
         case RAVEN_ROOM_TRIGGER_TYPE_GET_UPGRADE:
-            game_set_upgrade(game, tr->get_upgrade.upgrade_id);
+            game_set_upgrade(game, tr->get_upgrade.get_upgrade_id);
             break;
         case RAVEN_ROOM_TRIGGER_TYPE_GET_PICKUP:
-            game_set_pickup(game, tr->get_pickup.pickup_id);
+            run_state_disable_pickup_trigger(tr->trigger_id, tr->get_pickup.respawn_delay);
+            // TODO: pickup effect
             break;
-        }
-    }
-
-    if (JOY_BTN_PRESSED(joy, JOY_BTN_X)) {
-        const struct RAVEN_ROOM_TRIGGER_INFO *tr = game_check_player_trigger(game, 1u<<RAVEN_ROOM_TRIGGER_TYPE_GET_COLLECTABLE);
-        if (tr != NULL) {
-            game_set_collectable(game, tr->get_collectable.collectable_id);
+        case RAVEN_ROOM_TRIGGER_TYPE_GET_COLLECTABLE:
+            if (JOY_BTN_PRESSED(joy, JOY_BTN_X)) {
+                game_set_collectable(game, tr->get_collectable.get_collectable_id);
+            }
+            break;
         }
     }
 }
@@ -355,21 +350,39 @@ static void update_check_room_items(struct GAME_STATE *game, struct JOYSTICK *jo
 static void update_check_room_buttons(struct GAME_STATE *game, struct JOYSTICK *joy)
 {
     uint32_t button_flags = ((1u<<RAVEN_ROOM_TRIGGER_TYPE_WALL_BUTTON) |
-                             (1u<<RAVEN_ROOM_TRIGGER_TYPE_FLOOR_BUTTON));
+                             (1u<<RAVEN_ROOM_TRIGGER_TYPE_DETECTOR_BUTTON));
     const struct RAVEN_ROOM_TRIGGER_INFO *tr = game_check_player_trigger(game, button_flags);
     if (tr != NULL) {
         switch (tr->type) {
-        case RAVEN_ROOM_TRIGGER_TYPE_FLOOR_BUTTON:
-            game_activate_effect(game, tr->floor_button.effect_id);
-            game_set_flag(game, tr->floor_button.flag_id);
+        case RAVEN_ROOM_TRIGGER_TYPE_DETECTOR_BUTTON:
+            {
+                int collectable_ok = (tr->detector_button.req_collectable_id == 0xffff ||
+                                      game_has_collectable(game, tr->detector_button.req_collectable_id));
+                int flag_ok = (tr->detector_button.req_flag_id == 0xffff ||
+                               game_has_flag(game, tr->detector_button.req_flag_id));
+                if (collectable_ok && flag_ok) {
+                    game_activate_effect(game, tr->detector_button.set_effect_id);
+                    if (tr->detector_button.set_flag_id != 0xffff && ! game_has_flag(game, tr->detector_button.set_flag_id)) {
+                        game_set_flag(game, tr->detector_button.set_flag_id);
+                        run_state_spawn_room_enemies(game, tr->detector_button.set_flag_id);
+                    }
+                }
+            }
             break;
 
         case RAVEN_ROOM_TRIGGER_TYPE_WALL_BUTTON:
-            if (JOY_BTN_PRESSED(joy, JOY_BTN_X) &&
-                (tr->wall_button.req_collectable_id == 0xffff ||
-                 game_has_collectable(game, tr->wall_button.req_collectable_id))) {
-                game_activate_effect(game, tr->wall_button.effect_id);
-                game_set_flag(game, tr->wall_button.flag_id);
+            if (JOY_BTN_PRESSED(joy, JOY_BTN_X)) {
+                int collectable_ok = (tr->wall_button.req_collectable_id == 0xffff ||
+                                       game_has_collectable(game, tr->wall_button.req_collectable_id));
+                int flag_ok = (tr->wall_button.req_flag_id == 0xffff ||
+                               game_has_flag(game, tr->wall_button.req_flag_id));
+                if (collectable_ok && flag_ok) {
+                    game_activate_effect(game, tr->wall_button.set_effect_id);
+                    if (tr->detector_button.set_flag_id != 0xffff && ! game_has_flag(game, tr->detector_button.set_flag_id)) {
+                        game_set_flag(game, tr->detector_button.set_flag_id);
+                        run_state_spawn_room_enemies(game, tr->detector_button.set_flag_id);
+                    }
+                }
             }
             break;
         }
@@ -393,7 +406,7 @@ static void update_game_state(struct GAME_STATE *game, struct JOYSTICK *joy)
     update_check_room_items(game, joy);
     update_check_room_buttons(game, joy);
     const struct RAVEN_ROOM_TRIGGER_INFO *door = game_check_player_trigger(game, 1<<RAVEN_ROOM_TRIGGER_TYPE_DOOR);
-    if (door != NULL) {
+    if (door != NULL && (door->door.req_flag_id == 0xffff || game_has_flag(game, door->door.req_flag_id))) {
         run_state.room_transition.enabled = true;
         run_state.room_transition.frame = 0;
         run_state.room_transition.src_room_id = game->room_id;

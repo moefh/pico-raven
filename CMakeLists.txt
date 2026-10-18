@@ -26,11 +26,6 @@ add_executable(${PROJECT_NAME}
     src/sprite_shadow.c
     src/rooms/default.c
     src/rooms/west__buntown_gate.c
-    src/rooms/west__west_hall.c
-    src/rooms/east__test.c
-    src/rooms/north__test.c
-    src/rooms/depths__test.c
-    src/rooms/core__test.c
     lib/joy_wii_i2c.c
     lib/audio_mixer.c
     lib/mod_play.c
