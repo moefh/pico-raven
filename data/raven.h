@@ -84,13 +84,22 @@ struct RAVEN_PAL_SPRITE {
 
 #ifndef RAVEN_SKIP_STRUCTS_MAP
 
+struct RAVEN_MAP_TILE_CHANGE {
+    uint16_t w;
+    uint16_t h;
+    const uint32_t *tile_bitmap;
+    const uint8_t *tiles;
+};
+
 struct RAVEN_MAP {
     int16_t w;
     int16_t h;
     uint8_t has_bb_layer;
+    uint16_t num_tile_changes;
     const struct RAVEN_IMAGE *tileset;
     const struct RAVEN_TILE_ANIMATION *animation;
     const uint8_t *tiles;
+    const struct RAVEN_MAP_TILE_CHANGE *tile_changes;
 };
 
 #endif /* RAVEN_SKIP_STRUCTS_MAP */
@@ -154,6 +163,7 @@ enum RAVEN_ROOM_TRIGGER_TYPE {
    RAVEN_ROOM_TRIGGER_TYPE_DETECTOR_BUTTON,
    RAVEN_ROOM_TRIGGER_TYPE_UNBLOCK_TILES,
    RAVEN_ROOM_TRIGGER_TYPE_DISABLE_ANIMATION,
+   RAVEN_ROOM_TRIGGER_TYPE_CHANGE_TILES,
    RAVEN_ROOM_TRIGGER_TYPE_REMOVE_ENEMY,
    RAVEN_ROOM_TRIGGER_TYPE_GET_UPGRADE,
    RAVEN_ROOM_TRIGGER_TYPE_GET_COLLECTABLE,
@@ -221,6 +231,12 @@ struct RAVEN_ROOM_TRIGGER_INFO {
             uint16_t height;
             uint16_t on_effect_id;
         } disable_animation;
+        struct {
+            uint16_t map_index;
+            uint16_t tile_change_index;
+            uint8_t map_layer;
+            uint16_t on_effect_id;
+        } change_tiles;
         struct {
             uint16_t enemy_id;
             uint16_t on_effect_id;
@@ -299,9 +315,10 @@ struct RAVEN_TABLE_ITEM {
 
 #ifndef RAVEN_SKIP_ROOM_SCRIPT
 
-struct RAVEN_STATE;
-typedef void (*raven_room_init_function)(uint32_t, struct RAVEN_STATE *);
-typedef void (*raven_room_update_function)(struct RAVEN_STATE *);
+#ifndef RAVEN_SKIP_ROOM_SCRIPT_FUNCTION_TYPEDEFS
+typedef void (*raven_room_init_function)(uint32_t, void *);
+typedef void (*raven_room_update_function)(void *);
+#endif
 
 struct RAVEN_ROOM_SCRIPT {
     raven_room_init_function init;

@@ -5,12 +5,12 @@
 
 struct JOYSTICK;
 
-void player_set_sprite_anim(struct GAME_STATE *game, int animation_id);
-void player_init(struct GAME_STATE *game);
-void player_update_sprite_info(struct GAME_STATE *game);
-void player_update(struct GAME_STATE *game, struct JOYSTICK *joy);
+void player_set_sprite_anim(int animation_id);
+void player_init(void);
+void player_update_sprite_info(void);
+void player_update(struct JOYSTICK *joy);
 
-void player_control_init(struct GAME_STATE *game);
-void player_control_update(struct GAME_STATE *game, struct JOYSTICK *joy);
+void player_control_init(void);
+void player_control_update(struct JOYSTICK *joy);
 
 #endif /* PLAYER_H_FILE */

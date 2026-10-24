@@ -3,7 +3,6 @@
 #include "enemy.h"
 #include "collision.h"
 #include "game.h"
-#include "run_state.h"
 
 #include "lib/joystick.h"
 #include "lib/mem.h"
@@ -59,7 +58,7 @@ static int is_at_animation_end(struct GAME_ENEMY *enemy)
     return (((enemy->anim_frame + loop->frame_adv + 1) >> 8) >= loop->length);
 }
 
-static int is_player_seen(struct GAME_STATE *game, struct GAME_ENEMY *enemy)
+static int is_player_seen(struct GAME_ENEMY *enemy)
 {
     struct COLLISION_RECT watched_area = {
         .x = enemy->x - 5*TILE_SIZE,
@@ -68,7 +67,7 @@ static int is_player_seen(struct GAME_STATE *game, struct GAME_ENEMY *enemy)
         .h = enemy->anim->collision.h + 10*TILE_SIZE,
     };
 
-    struct GAME_CHARACTER *pl = &game->player;
+    struct GAME_CHARACTER *pl = &game_state.player;
     int px = pl->x + pl->anim->collision.w / 2;
     int py = pl->y + pl->anim->collision.h / 2;
 
@@ -77,8 +76,8 @@ static int is_player_seen(struct GAME_STATE *game, struct GAME_ENEMY *enemy)
 
 static int fall(int enemy_index)
 {
-    struct GAME_ENEMY *enemy = &run_state.enemies[enemy_index];
-    struct GAME_ENEMY_CONTROL *control = &run_state.enemies_control[enemy_index];
+    struct GAME_ENEMY *enemy = &game_state.enemies[enemy_index];
+    struct GAME_ENEMY_CONTROL *control = &game_state.enemies_control[enemy_index];
 
     struct COLLISION_RECT rect = {
         .x = enemy->x,
@@ -95,8 +94,8 @@ static int fall(int enemy_index)
 
 static int walk_but_turn_on_bump_or_edge(int enemy_index)
 {
-    struct GAME_ENEMY *enemy = &run_state.enemies[enemy_index];
-    struct GAME_ENEMY_CONTROL *control = &run_state.enemies_control[enemy_index];
+    struct GAME_ENEMY *enemy = &game_state.enemies[enemy_index];
+    struct GAME_ENEMY_CONTROL *control = &game_state.enemies_control[enemy_index];
 
     // check if we're close to an edge
     struct COLLISION_RECT check_fall_rect = {
@@ -145,10 +144,10 @@ static void set_walker_anim_loop(struct GAME_ENEMY *enemy)
 
 static void init_walker(int enemy_index)
 {
-    struct GAME_ENEMY *enemy = &run_state.enemies[enemy_index];
+    struct GAME_ENEMY *enemy = &game_state.enemies[enemy_index];
     enemy->state = WALKER_STATE_WALK;
 
-    struct GAME_ENEMY_CONTROL *control = &run_state.enemies_control[enemy_index];
+    struct GAME_ENEMY_CONTROL *control = &game_state.enemies_control[enemy_index];
     control->dx = 0;
     control->dy = 0;
     control->wait = 0;
@@ -158,7 +157,7 @@ static void init_walker(int enemy_index)
 
 static void update_walker(int enemy_index)
 {
-    struct GAME_ENEMY *enemy = &run_state.enemies[enemy_index];
+    struct GAME_ENEMY *enemy = &game_state.enemies[enemy_index];
 
     int dx = (enemy->direction == RAVEN_DIR_LEFT) ? -1 : 1;
     struct COLLISION_RECT rect = {
@@ -200,10 +199,10 @@ static void set_chiller_anim_loop(struct GAME_ENEMY *enemy)
 
 static void init_chiller(int enemy_index)
 {
-    struct GAME_ENEMY *enemy = &run_state.enemies[enemy_index];
+    struct GAME_ENEMY *enemy = &game_state.enemies[enemy_index];
     enemy->state = CHILLER_STATE_LOOK;
 
-    struct GAME_ENEMY_CONTROL *control = &run_state.enemies_control[enemy_index];
+    struct GAME_ENEMY_CONTROL *control = &game_state.enemies_control[enemy_index];
     control->dx = 0x100;
     control->dy = 0;
     control->dx = (enemy->direction == RAVEN_DIR_LEFT) ? -0x100 : 0x100;
@@ -213,8 +212,8 @@ static void init_chiller(int enemy_index)
 
 static void update_chiller(int enemy_index)
 {
-    struct GAME_ENEMY *enemy = &run_state.enemies[enemy_index];
-    struct GAME_ENEMY_CONTROL *control = &run_state.enemies_control[enemy_index];
+    struct GAME_ENEMY *enemy = &game_state.enemies[enemy_index];
+    struct GAME_ENEMY_CONTROL *control = &game_state.enemies_control[enemy_index];
 
     switch (enemy->state) {
     case CHILLER_STATE_WALK:
@@ -265,10 +264,10 @@ static void set_hopper_anim_loop(struct GAME_ENEMY *enemy)
 
 static void init_hopper(int enemy_index)
 {
-    struct GAME_ENEMY *enemy = &run_state.enemies[enemy_index];
+    struct GAME_ENEMY *enemy = &game_state.enemies[enemy_index];
     enemy->state = HOPPER_STATE_AMBUSH_WAIT;
 
-    struct GAME_ENEMY_CONTROL *control = &run_state.enemies_control[enemy_index];
+    struct GAME_ENEMY_CONTROL *control = &game_state.enemies_control[enemy_index];
     control->dx = 0;
     control->dy = 0;
     control->wait = 0;
@@ -276,14 +275,14 @@ static void init_hopper(int enemy_index)
     set_hopper_anim_loop(enemy);
 }
 
-static void update_hopper(struct GAME_STATE *game, int enemy_index)
+static void update_hopper(int enemy_index)
 {
-    struct GAME_ENEMY *enemy = &run_state.enemies[enemy_index];
-    struct GAME_ENEMY_CONTROL *control = &run_state.enemies_control[enemy_index];
+    struct GAME_ENEMY *enemy = &game_state.enemies[enemy_index];
+    struct GAME_ENEMY_CONTROL *control = &game_state.enemies_control[enemy_index];
 
     switch (enemy->state) {
     case HOPPER_STATE_AMBUSH_WAIT:
-        if (is_player_seen(game, enemy) != 0) {
+        if (is_player_seen(enemy) != 0) {
             enemy->state = HOPPER_STATE_AMBUSH_PLUNGE;
             enemy->anim_frame = 0;
             control->dx = 0;
@@ -302,10 +301,10 @@ static void update_hopper(struct GAME_STATE *game, int enemy_index)
 
     case HOPPER_STATE_SPLAT:
         if (is_at_animation_end(enemy)) {
-            if (is_player_seen(game, enemy)) {
+            if (is_player_seen(enemy)) {
                 enemy->state = HOPPER_STATE_POUNCE_PREP;
                 enemy->anim_frame = 0;
-                enemy->direction = (game->player.x < enemy->x) ? RAVEN_DIR_LEFT : RAVEN_DIR_RIGHT;
+                enemy->direction = (game_state.player.x < enemy->x) ? RAVEN_DIR_LEFT : RAVEN_DIR_RIGHT;
                 control->dx = (enemy->direction == RAVEN_DIR_LEFT) ? -0x100 : 0x100;
             } else {
                 enemy->state = HOPPER_STATE_PATROL_WALK;
@@ -317,10 +316,10 @@ static void update_hopper(struct GAME_STATE *game, int enemy_index)
         break;
 
     case HOPPER_STATE_PATROL_WALK:
-        if (is_player_seen(game, enemy)) {
+        if (is_player_seen(enemy)) {
             enemy->state = HOPPER_STATE_POUNCE_PREP;
             enemy->anim_frame = 0;
-            enemy->direction = (game->player.x < enemy->x) ? RAVEN_DIR_LEFT : RAVEN_DIR_RIGHT;
+            enemy->direction = (game_state.player.x < enemy->x) ? RAVEN_DIR_LEFT : RAVEN_DIR_RIGHT;
         } else if (control->wait-- <= 0 || walk_but_turn_on_bump_or_edge(enemy_index) != 0) {
             enemy->state = HOPPER_STATE_PATROL_BLINK;
             enemy->anim_frame = 0;
@@ -328,10 +327,10 @@ static void update_hopper(struct GAME_STATE *game, int enemy_index)
         break;
 
     case HOPPER_STATE_PATROL_BLINK:
-        if (is_player_seen(game, enemy)) {
+        if (is_player_seen(enemy)) {
             enemy->state = HOPPER_STATE_POUNCE_PREP;
             enemy->anim_frame = 0;
-            enemy->direction = (game->player.x < enemy->x) ? RAVEN_DIR_LEFT : RAVEN_DIR_RIGHT;
+            enemy->direction = (game_state.player.x < enemy->x) ? RAVEN_DIR_LEFT : RAVEN_DIR_RIGHT;
         } else if (is_at_animation_end(enemy)) {
             enemy->state = HOPPER_STATE_PATROL_LOOK;
             enemy->anim_frame = 0;
@@ -339,10 +338,10 @@ static void update_hopper(struct GAME_STATE *game, int enemy_index)
         break;
 
     case HOPPER_STATE_PATROL_LOOK:
-        if (is_player_seen(game, enemy)) {
+        if (is_player_seen(enemy)) {
             enemy->state = HOPPER_STATE_POUNCE_PREP;
             enemy->anim_frame = 0;
-            enemy->direction = (game->player.x < enemy->x) ? RAVEN_DIR_LEFT : RAVEN_DIR_RIGHT;
+            enemy->direction = (game_state.player.x < enemy->x) ? RAVEN_DIR_LEFT : RAVEN_DIR_RIGHT;
         } else if (is_at_animation_end(enemy)) {
             enemy->state = HOPPER_STATE_PATROL_WALK;
             enemy->anim_frame = 0;
@@ -355,7 +354,7 @@ static void update_hopper(struct GAME_STATE *game, int enemy_index)
         if (is_at_animation_end(enemy)) {
             enemy->state = HOPPER_STATE_POUNCE_JUMP;
             enemy->anim_frame = 0;
-            enemy->direction = (game->player.x < enemy->x) ? RAVEN_DIR_LEFT : RAVEN_DIR_RIGHT;
+            enemy->direction = (game_state.player.x < enemy->x) ? RAVEN_DIR_LEFT : RAVEN_DIR_RIGHT;
             control->dx = (enemy->direction == RAVEN_DIR_LEFT) ? -0x200 : 0x200;
             control->dy = -0xa00;
         }
@@ -379,10 +378,10 @@ static void update_hopper(struct GAME_STATE *game, int enemy_index)
 
 static void init_floater(int enemy_index)
 {
-    struct GAME_ENEMY *enemy = &run_state.enemies[enemy_index];
+    struct GAME_ENEMY *enemy = &game_state.enemies[enemy_index];
     enemy->state = FLOATER_STATE_FLOAT;
 
-    struct GAME_ENEMY_CONTROL *control = &run_state.enemies_control[enemy_index];
+    struct GAME_ENEMY_CONTROL *control = &game_state.enemies_control[enemy_index];
     control->dx = 0;
     control->dy = 0;
     control->wait = enemy->y;
@@ -392,11 +391,11 @@ static void init_floater(int enemy_index)
 
 static void update_floater(int enemy_index)
 {
-    struct GAME_ENEMY *enemy = &run_state.enemies[enemy_index];
-    struct GAME_ENEMY_CONTROL *control = &run_state.enemies_control[enemy_index];
+    struct GAME_ENEMY *enemy = &game_state.enemies[enemy_index];
+    struct GAME_ENEMY_CONTROL *control = &game_state.enemies_control[enemy_index];
 
     static const int8_t float_delta[] = { 0, -1, -2, -2, -1, 0, 1, 2, 2, 1 };
-    enemy->y = control->wait + float_delta[(run_state.anim_step / 16) % (sizeof(float_delta) / sizeof(*float_delta))];
+    enemy->y = control->wait + float_delta[(game_state.anim_step / 16) % (sizeof(float_delta) / sizeof(*float_delta))];
 }
 
 /* ================================================================ */
@@ -429,7 +428,7 @@ static void update_sprite_info(struct GAME_ENEMY *enemy)
 
 void enemy_init(int enemy_index, const struct RAVEN_ROOM_TRIGGER_INFO *spawn)
 {
-    struct GAME_ENEMY *enemy = &run_state.enemies[enemy_index];
+    struct GAME_ENEMY *enemy = &game_state.enemies[enemy_index];
     enemy->id = spawn->enemy_spawn.enemy_id;
     enemy->anim = spawn->enemy_spawn.animation;
     enemy->sprite = enemy->anim->sprite;
@@ -439,7 +438,7 @@ void enemy_init(int enemy_index, const struct RAVEN_ROOM_TRIGGER_INFO *spawn)
     enemy->anim_frame = 0;
     enemy->shadow_enabled = 0;
 
-    struct GAME_ENEMY_CONTROL *control = &run_state.enemies_control[enemy_index];
+    struct GAME_ENEMY_CONTROL *control = &game_state.enemies_control[enemy_index];
     control->enemy_type = spawn->enemy_spawn.enemy_type;
     switch (control->enemy_type) {
     case ENEMY_TYPE_WALKER: init_walker(enemy_index); break;
@@ -452,15 +451,15 @@ void enemy_init(int enemy_index, const struct RAVEN_ROOM_TRIGGER_INFO *spawn)
     update_sprite_info(enemy);
 }
 
-void enemy_update(struct GAME_STATE *game, int enemy_index)
+void enemy_update(int enemy_index)
 {
-    struct GAME_ENEMY *enemy = &run_state.enemies[enemy_index];
-    struct GAME_ENEMY_CONTROL *control = &run_state.enemies_control[enemy_index];
+    struct GAME_ENEMY *enemy = &game_state.enemies[enemy_index];
+    struct GAME_ENEMY_CONTROL *control = &game_state.enemies_control[enemy_index];
 
     switch (control->enemy_type) {
     case ENEMY_TYPE_WALKER: update_walker(enemy_index); break;
     case ENEMY_TYPE_CHILLER: update_chiller(enemy_index); break;
-    case ENEMY_TYPE_HOPPER: update_hopper(game, enemy_index); break;
+    case ENEMY_TYPE_HOPPER: update_hopper(enemy_index); break;
     case ENEMY_TYPE_FLOATER: update_floater(enemy_index); break;
     }
 

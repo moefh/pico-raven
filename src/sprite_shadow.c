@@ -1,6 +1,6 @@
 
 #include "sprite_shadow.h"
-#include "run_state.h"
+#include "game.h"
 #include "lib/vga_8bit.h"
 #include "lib/vga_image_8bit.h"
 
@@ -107,8 +107,8 @@ static void draw_sprite_shadow_frame(int x, int y, int frame, uint8_t color, con
 void sprite_shadow_draw_bitmap(const uint8_t *sprite_shadow, const struct RAVEN_IMAGE *sprite, const uint8_t *colors)
 {
     for (int i = 0; i < n_shadow_frames; i++) {
-        draw_sprite_shadow_frame(shadow_frame[i].x - run_state.screen_x,
-                                 shadow_frame[i].y - run_state.screen_y + vga_image_screen.y_min,
+        draw_sprite_shadow_frame(shadow_frame[i].x - game_state.screen_x,
+                                 shadow_frame[i].y - game_state.screen_y + vga_image_screen.y_min,
                                  shadow_frame[i].frame,
                                  colors[i],
                                  sprite_shadow,
@@ -122,8 +122,8 @@ void sprite_shadow_draw(const struct RAVEN_IMAGE *sprite, const uint8_t *colors)
     for (int i = 0; i < n_shadow_frames; i++) {
         vga_image_draw_frame_mask(sprite,
                                   shadow_frame[i].frame,
-                                  shadow_frame[i].x - run_state.screen_x,
-                                  shadow_frame[i].y - run_state.screen_y + vga_image_screen.y_min,
+                                  shadow_frame[i].x - game_state.screen_x,
+                                  shadow_frame[i].y - game_state.screen_y + vga_image_screen.y_min,
                                   colors[i]);
     }
 }

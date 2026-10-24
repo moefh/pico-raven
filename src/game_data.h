@@ -25,7 +25,10 @@ enum RAVEN_DIRECTION {
 #define RAVEN_IMAGE VGA_IMAGE
 #define RAVEN_FONT VGA_FONT
 #define RAVEN_PROP_FONT VGA_PROP_FONT
-#define RAVEN_STATE GAME_STATE
+
+#define RAVEN_SKIP_ROOM_SCRIPT_FUNCTION_TYPEDEFS
+typedef void (*raven_room_init_function)(uint32_t);
+typedef void (*raven_room_update_function)(void);
 
 #include "data/raven.h"
 #include "data/raven_data.h"

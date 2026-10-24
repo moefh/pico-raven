@@ -17,7 +17,6 @@
 void core1_main(void);
 
 static struct JOYSTICK joy;
-static struct GAME_STATE game_state;
 
 static void led_init(void)
 {
@@ -60,5 +59,5 @@ int main(void)
 
     printf("pos-init free mem: %lu/%lu\n", sysinfo_heap_free(), sysinfo_heap_total());
 
-    game_main_loop(&game_state, &joy);
+    game_main_loop(&joy);
 }

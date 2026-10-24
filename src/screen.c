@@ -5,7 +5,6 @@
 
 #include "screen.h"
 #include "config.h"
-#include "run_state.h"
 #include "draw_room.h"
 #include "sprite_shadow.h"
 
@@ -128,20 +127,20 @@ static void draw_joy_buttons(struct JOYSTICK *joy, int y)
     if (joy->cur & JOY_BTN_START)  { font_move(10+1*42, y+30); font_printf("START"); }
 }
 
-static void draw_player(struct GAME_STATE *game)
+static void draw_player(void)
 {
-    if (game->player.shadow_enabled) {
-        sprite_shadow_draw(game->player.sprite, sprite_shadow_colors);
+    if (game_state.player.shadow_enabled) {
+        sprite_shadow_draw(game_state.player.sprite, sprite_shadow_colors);
     }
 
-    vga_image_draw_frame(game->player.sprite,
-                         game->player.sprite_frame,
-                         game->player.sprite_x - run_state.screen_x,
-                         game->player.sprite_y - run_state.screen_y + vga_image_screen.y_min,
+    vga_image_draw_frame(game_state.player.sprite,
+                         game_state.player.sprite_frame,
+                         game_state.player.sprite_x - game_state.screen_x,
+                         game_state.player.sprite_y - game_state.screen_y + vga_image_screen.y_min,
                          1);
 }
 
-static void draw_room_items(struct GAME_STATE *game, const struct RAVEN_ROOM *room)
+static void draw_room_items(const struct RAVEN_ROOM *room)
 {
     for (int i = 0; i < room->num_triggers; i++) {
         const struct RAVEN_IMAGE *sprite = NULL;
@@ -149,46 +148,46 @@ static void draw_room_items(struct GAME_STATE *game, const struct RAVEN_ROOM *ro
         switch (trg->type) {
         case RAVEN_ROOM_TRIGGER_TYPE_GET_UPGRADE:
             if (trg->get_upgrade.get_upgrade_id != 0xffff &&
-                ! game_has_upgrade(game, trg->get_upgrade.get_upgrade_id)) {
+                ! game_state_has_upgrade(trg->get_upgrade.get_upgrade_id)) {
                 sprite = raven_table_upgrades[trg->get_upgrade.get_upgrade_id].sprite;
             }
             break;
         case RAVEN_ROOM_TRIGGER_TYPE_GET_COLLECTABLE:
             if (trg->get_collectable.get_collectable_id != 0xffff
-                && ! game_has_collectable(game, trg->get_collectable.get_collectable_id)) {
+                && ! game_state_has_collectable(trg->get_collectable.get_collectable_id)) {
                 sprite = raven_table_collectables[trg->get_collectable.get_collectable_id].sprite;
             }
             break;
         case RAVEN_ROOM_TRIGGER_TYPE_GET_PICKUP:
-            if (trg->get_pickup.get_pickup_id != 0xffff && run_state_is_pickup_trigger_enabled(trg->trigger_id)) {
+            if (trg->get_pickup.get_pickup_id != 0xffff && game_state_is_pickup_trigger_enabled(trg->trigger_id)) {
                 sprite = raven_table_pickups[trg->get_pickup.get_pickup_id].sprite;
             }
             break;
         }
         if (sprite != NULL) {
-            vga_image_draw_frame(sprite, 0, trg->x - run_state.screen_x, trg->y - run_state.screen_y + vga_image_screen.y_min, 1);
+            vga_image_draw_frame(sprite, 0, trg->x - game_state.screen_x, trg->y - game_state.screen_y + vga_image_screen.y_min, 1);
         }
     }
 }
 
-static void draw_room(struct GAME_STATE *game)
+static void draw_room(void)
 {
-    struct DRAW_ROOM_INFO *info = draw_room_init_frame(&draw_frame_arena, game);
-    const struct RAVEN_ROOM *room = &raven_rooms[game->room_id];
+    struct DRAW_ROOM_INFO *info = draw_room_init_frame(&draw_frame_arena);
+    const struct RAVEN_ROOM *room = &raven_rooms[game_state.room_id];
 
     draw_room_bg(info);
     RUN_PERF(room_bg_us);
 
-    draw_player(game);
+    draw_player();
     RUN_PERF(player_us);
 
-    draw_room_items(game, room);
-    for (int i = 0; i < run_state.num_enemies; i++) {
-        struct GAME_ENEMY *enemy = &run_state.enemies[i];
+    draw_room_items(room);
+    for (int i = 0; i < game_state.num_enemies; i++) {
+        struct GAME_ENEMY *enemy = &game_state.enemies[i];
         vga_image_draw_frame(enemy->sprite,
                              enemy->sprite_frame,
-                             enemy->sprite_x - run_state.screen_x,
-                             enemy->sprite_y - run_state.screen_y + vga_image_screen.y_min,
+                             enemy->sprite_x - game_state.screen_x,
+                             enemy->sprite_y - game_state.screen_y + vga_image_screen.y_min,
                              1);
     }
     RUN_PERF(enemies_us);
@@ -196,12 +195,12 @@ static void draw_room(struct GAME_STATE *game)
     draw_room_fg(info);
     RUN_PERF(room_fg_us);
 
-    if (run_state.display.show_perf) {
+    if (game_state.display.show_perf) {
         // collision rect
-        int sx = game->player.x - run_state.screen_x;
-        int sy = game->player.y - run_state.screen_y;
-        int w = game->player.anim->collision.w;
-        int h = game->player.anim->collision.h;
+        int sx = game_state.player.x - game_state.screen_x;
+        int sy = game_state.player.y - game_state.screen_y;
+        int w = game_state.player.anim->collision.w;
+        int h = game_state.player.anim->collision.h;
         for (int x = 0; x < w; x++) {
             vga_screen.lines8[SCREEN_HEADER_HEIGHT+sy][sx+x] = 0x38;
             vga_screen.lines8[SCREEN_HEADER_HEIGHT+sy+h-1][sx+x] = 0x38;
@@ -213,9 +212,8 @@ static void draw_room(struct GAME_STATE *game)
     }
 }
 
-static void draw_header(struct GAME_STATE *game)
+static void draw_header(void)
 {
-    (void) game;
     memset(vga_screen.framebuffer, 0, vga_screen.width * SCREEN_HEADER_HEIGHT);
 
     const struct RAVEN_IMAGE *energy = &raven_sprites[RAVEN_SPRITE_ID_SCREEN__ENERGY];
@@ -227,58 +225,58 @@ static void draw_header(struct GAME_STATE *game)
     font_printf("%2d", 3);
 }
 
-void screen_render(struct GAME_STATE *game, struct JOYSTICK *joy)
+void screen_render(struct JOYSTICK *joy)
 {
     mem_clear(&draw_frame_arena);
     //vga_clear_screen(0);
 
     vga_image_screen.y_min = 0;
-    draw_header(game);
+    draw_header();
     vga_image_screen.y_min = SCREEN_HEADER_HEIGHT;
-    draw_room(game);
+    draw_room();
     vga_image_screen.y_min = 0;
 
-    if (run_state.display.show_perf) {
+    if (game_state.display.show_perf) {
         font_align(FONT_ALIGN_LEFT);
         font_move(10, 10);
-        font_printf("%d fps", run_state.fps_count);
+        font_printf("%d fps", game_state.fps_count);
 
-        font_move(10, 20); font_printf("pos  %4ld,%-4ld\n", game->player.x, game->player.y);
-        font_move(10, 30); font_printf("vel %5ld,%-5ld\n", game->player_control.dx, game->player_control.dy);
-        font_move(10, 40); font_printf("state %d\n", game->player.state);
-        font_move(10, 50); font_printf("frame %d\n", game->player.anim_frame >> 8);
+        font_move(10, 20); font_printf("pos  %4ld,%-4ld\n", game_state.player.x, game_state.player.y);
+        font_move(10, 30); font_printf("vel %5ld,%-5ld\n", game_state.player_control.dx, game_state.player_control.dy);
+        font_move(10, 40); font_printf("state %d\n", game_state.player.state);
+        font_move(10, 50); font_printf("frame %d\n", game_state.player.anim_frame >> 8);
     }
 
-    update_perf_history(&run_state.perf);
-    if (run_state.display.show_perf) {
+    update_perf_history(&game_state.perf);
+    if (game_state.display.show_perf) {
         draw_perf_history(180, 10);
-        if (run_state.display.show_perf == 2) {
+        if (game_state.display.show_perf == 2) {
             for (int y = 85; y < 175; y++) memset(vga_screen.lines8[y] + 210, 0, PERF_IMAGE_W - 30);
-            font_set_color(PERF_COLOR_VSYNC);    font_move(216,  90); font_printf("vsync    %5lu", run_state.perf.vsync_us);
-            font_set_color(PERF_COLOR_RENDER);   font_move(216, 100); font_printf("render   %5lu", run_state.perf.render_us);
-            font_set_color(PERF_COLOR_ROOM_FG);  font_move(216, 110); font_printf("room_fg  %5lu", run_state.perf.room_fg_us);
-            font_set_color(PERF_COLOR_PLAYER);   font_move(216, 120); font_printf("player   %5lu", run_state.perf.player_us);
-            font_set_color(PERF_COLOR_ROOM_BG);  font_move(216, 130); font_printf("room_bg  %5lu", run_state.perf.room_bg_us);
-            font_set_color(PERF_COLOR_UPDATE);   font_move(216, 140); font_printf("logic    %5lu", run_state.perf.update_us);
-            font_set_color(PERF_COLOR_JOY_READ); font_move(216, 150); font_printf("joy read %5lu", run_state.perf.joy_read_us);
-            font_set_color(PERF_COLOR_JOY_REQ);  font_move(216, 160); font_printf("joy req  %5lu", run_state.perf.joy_req_us);
+            font_set_color(PERF_COLOR_VSYNC);    font_move(216,  90); font_printf("vsync    %5lu", game_state.perf.vsync_us);
+            font_set_color(PERF_COLOR_RENDER);   font_move(216, 100); font_printf("render   %5lu", game_state.perf.render_us);
+            font_set_color(PERF_COLOR_ROOM_FG);  font_move(216, 110); font_printf("room_fg  %5lu", game_state.perf.room_fg_us);
+            font_set_color(PERF_COLOR_PLAYER);   font_move(216, 120); font_printf("player   %5lu", game_state.perf.player_us);
+            font_set_color(PERF_COLOR_ROOM_BG);  font_move(216, 130); font_printf("room_bg  %5lu", game_state.perf.room_bg_us);
+            font_set_color(PERF_COLOR_UPDATE);   font_move(216, 140); font_printf("logic    %5lu", game_state.perf.update_us);
+            font_set_color(PERF_COLOR_JOY_READ); font_move(216, 150); font_printf("joy read %5lu", game_state.perf.joy_read_us);
+            font_set_color(PERF_COLOR_JOY_REQ);  font_move(216, 160); font_printf("joy req  %5lu", game_state.perf.joy_req_us);
             font_set_color(0xff);
         }
     }
 
-    if (run_state.display.show_perf) {
+    if (game_state.display.show_perf) {
         draw_joy_buttons(joy, 80);
 
-        font_move(10, 160); font_printf("mod number: %d", run_state.mod.index);
-        font_move(10, 170); font_printf("mod volume: %03x", run_state.mod.volume);
-        if (run_state.display.msg_mod_event_frames_left) {
-            font_move(10, 180); font_printf("mod event: %d, %d", run_state.mod.event_chan, run_state.mod.event_data);
+        font_move(10, 160); font_printf("mod number: %d", game_state.mod.index);
+        font_move(10, 170); font_printf("mod volume: %03x", game_state.mod.volume);
+        if (game_state.display.msg_mod_event_frames_left) {
+            font_move(10, 180); font_printf("mod event: %d, %d", game_state.mod.event_chan, game_state.mod.event_data);
         }
-        if (run_state.display.msg_save_frames_left) {
-            font_move(10, 190); font_printf("%s", run_state.display.save_success ? "game saved" : "error saving game");
+        if (game_state.display.msg_save_frames_left) {
+            font_move(10, 190); font_printf("%s", game_state.display.save_success ? "game saved" : "error saving game");
         }
-        if (run_state.display.msg_load_frames_left) {
-            font_move(10, 200); font_printf("%s", run_state.display.load_success ? "game loaded" : "error loading game");
+        if (game_state.display.msg_load_frames_left) {
+            font_move(10, 200); font_printf("%s", game_state.display.load_success ? "game loaded" : "error loading game");
         }
         font_move(10, 226); font_printf("version %llx", get_compilation_timestamp());
     }

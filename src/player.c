@@ -6,9 +6,9 @@
 #include "lib/joystick.h"
 #include "lib/mem.h"
 
-void player_update_sprite_info(struct GAME_STATE *game)
+void player_update_sprite_info(void)
 {
-    struct GAME_CHARACTER *pl = &game->player;
+    struct GAME_CHARACTER *pl = &game_state.player;
 
     switch (pl->state) {
     case PLAYER_STATE_STAND:  pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_STAND; break;
@@ -43,16 +43,16 @@ void player_update_sprite_info(struct GAME_STATE *game)
     }
 }
 
-void player_set_sprite_anim(struct GAME_STATE *game, int animation_id)
+void player_set_sprite_anim(int animation_id)
 {
     const struct RAVEN_SPRITE_ANIMATION *anim = &raven_sprite_animations[animation_id];
-    game->player.sprite = anim->sprite;
-    game->player.anim = anim;
+    game_state.player.sprite = anim->sprite;
+    game_state.player.anim = anim;
 }
 
-void player_init(struct GAME_STATE *game)
+void player_init(void)
 {
-    struct GAME_CHARACTER *pl = &game->player;
+    struct GAME_CHARACTER *pl = &game_state.player;
     pl->x = 0;
     pl->y = 0;
     pl->state = PLAYER_STATE_STAND;
@@ -60,13 +60,13 @@ void player_init(struct GAME_STATE *game)
     pl->anim_frame = 0;
     pl->shadow_enabled = 0;
 
-    player_update_sprite_info(game);
+    player_update_sprite_info();
 }
 
-void player_update(struct GAME_STATE *game, struct JOYSTICK *joy)
+void player_update(struct JOYSTICK *joy)
 {
-    struct GAME_CHARACTER *pl = &game->player;
-    struct GAME_PLAYER_CONTROL *plc = &game->player_control;
+    struct GAME_CHARACTER *pl = &game_state.player;
+    struct GAME_PLAYER_CONTROL *plc = &game_state.player_control;
 
     //printf("update player: at (%ld,%ld), delta=0x(%lx,%lx)=(%ld,%ld)\n", pl->x, pl->y, plc->dx, plc->dy, plc->dx>>8, plc->dy>>8);
     int dx = plc->dx >> 8;
@@ -114,20 +114,20 @@ void player_update(struct GAME_STATE *game, struct JOYSTICK *joy)
             pl->anim_frame = 0;
         }
     }
-    player_update_sprite_info(game);
+    player_update_sprite_info();
 }
 
-void player_control_init(struct GAME_STATE *game)
+void player_control_init(void)
 {
-    struct GAME_PLAYER_CONTROL *plc = &game->player_control;
+    struct GAME_PLAYER_CONTROL *plc = &game_state.player_control;
     plc->dx = 0;
     plc->dy = 0;
 }
 
-void player_control_update(struct GAME_STATE *game, struct JOYSTICK *joy)
+void player_control_update(struct JOYSTICK *joy)
 {
-    struct GAME_CHARACTER *pl = &game->player;
-    struct GAME_PLAYER_CONTROL *plc = &game->player_control;
+    struct GAME_CHARACTER *pl = &game_state.player;
+    struct GAME_PLAYER_CONTROL *plc = &game_state.player_control;
 
     // walk
     if (pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK || pl->state == PLAYER_STATE_CROUCH) {

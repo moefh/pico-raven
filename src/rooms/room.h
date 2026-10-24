@@ -4,11 +4,10 @@
 #include "default.h"
 #include "../game.h"
 #include "../game_data.h"
-#include "../run_state.h"
 
 #define ADD_ROOM_SCRIPT(name)                                         \
-    static void init_room(uint32_t, struct GAME_STATE *);             \
-    static void update_room(struct GAME_STATE *);                     \
+    static void init_room(uint32_t);                                  \
+    static void update_room();                                        \
     const struct RAVEN_ROOM_SCRIPT raven_room_script_table_##name = { \
         .init = init_room,                                            \
         .update = update_room,                                        \

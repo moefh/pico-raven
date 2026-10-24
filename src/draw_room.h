@@ -43,9 +43,8 @@ struct DRAW_ROOM_INFO {
 };
 
 struct MEM_ARENA;
-struct GAME_STATE;
 
-struct DRAW_ROOM_INFO *draw_room_init_frame(struct MEM_ARENA *mem, struct GAME_STATE *game);
+struct DRAW_ROOM_INFO *draw_room_init_frame(struct MEM_ARENA *mem);
 void draw_room_bg(struct DRAW_ROOM_INFO *info);
 void draw_room_fg(struct DRAW_ROOM_INFO *info);
 

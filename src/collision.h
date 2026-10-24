@@ -2,7 +2,7 @@
 #define COLLISION_H_FILE
 
 #include "game_data.h"
-#include "run_state.h"
+#include "game.h"
 
 #define COLLISION_FLAGS_RAMP  (1<<0)
 #define COLLISION_FLAGS_DOWN  (1<<1)
@@ -26,8 +26,6 @@ struct COLLISION_RECT {
     int16_t h;
 };
 
-struct GAME_STATE;
-
 int collision_move(struct COLLISION_RECT *rect, int dx, int dy);
 
 static inline int collision_is_point_in_rect(int x, int y, struct COLLISION_RECT *rect)
@@ -37,10 +35,10 @@ static inline int collision_is_point_in_rect(int x, int y, struct COLLISION_RECT
 
 static inline uint8_t collision_get_room_tile_at(int tx, int ty)
 {
-    if (tx < 0 || ty < 0 || tx >= run_state.room_tiles_w || ty >= run_state.room_tiles_h) {
+    if (tx < 0 || ty < 0 || tx >= game_state.room_tiles_w || ty >= game_state.room_tiles_h) {
         return TILE_FX_BLOCK;
     }
-    return run_state.fx_tiles[ty * run_state.room_tiles_w + tx] & 0x0f;
+    return game_state.fx_tiles[ty * game_state.room_tiles_w + tx] & 0x0f;
 }
 
 #endif /* COLLISION_H_FILE */
