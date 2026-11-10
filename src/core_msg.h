@@ -11,6 +11,7 @@
 enum CORE_MSG_TYPE {
     CORE0_MSG_TYPE_MOD_EVENT,
     CORE1_MSG_TYPE_AUDIO_INIT,
+    CORE1_MSG_TYPE_SET_MASTER_VOLUME,
     CORE1_MSG_TYPE_SFX_PLAY,
     CORE1_MSG_TYPE_SFX_STOP,
     CORE1_MSG_TYPE_SFX_SET_VOLUME,
@@ -35,6 +36,11 @@ struct CORE1_MSG_AUDIO_INIT {
     uint8_t pio_num;
     uint8_t data_pin;
     uint8_t clock_pin_base;
+};
+
+struct CORE1_MSG_SET_MASTER_VOLUME {
+    struct CORE_MSG_HEADER msg_header;
+    uint16_t volume;
 };
 
 struct CORE1_MSG_SFX_PLAY {
@@ -79,6 +85,7 @@ union CORE_MSG {
     struct CORE_MSG_HEADER msg_header;
     struct CORE0_MSG_MOD_EVENT mod_event;
     struct CORE1_MSG_AUDIO_INIT audio_init;
+    struct CORE1_MSG_SET_MASTER_VOLUME set_master_volume;
     struct CORE1_MSG_SFX_PLAY sfx_play;
     struct CORE1_MSG_SFX_STOP sfx_stop;
     struct CORE1_MSG_SFX_SET_VOLUME sfx_set_volume;
@@ -95,6 +102,7 @@ bool core1_msg_try_recv(union CORE_MSG *msg);
 // === core0 -> core1:
 
 void msg_audio_init(int pio_num, int data_pin, int clock_pin_base, int sample_freq);
+void msg_set_master_volume(uint16_t volume);
 
 void msg_sfx_play_once(uint16_t sfx_id, const struct RAVEN_SFX *sfx, uint16_t volume, uint32_t pitch_shift);
 void msg_sfx_play_loop(uint16_t sfx_id, const struct RAVEN_SFX *sfx, uint16_t volume, uint32_t pitch_shift);

@@ -29,6 +29,7 @@ static struct DATA_SOURCE data_sources[AUDIO_MIXER_MAX_SOURCES];
 static audio_callback callback_source;
 static int16_t callback_volume;
 static int16_t callback_buffer[SOUND_I2S_BUFFER_NUM_SAMPLES];
+static uint16_t master_volume;
 
 static int find_unused_source(void)
 {
@@ -67,11 +68,11 @@ static int add_source(uint16_t id, uint16_t spl_type, const void *spl, uint32_t 
     }
     source->spl_advance = pitch_shift;
     source->volume = volume;
-    
+
     source->pos = 0;
     source->loop_start = loop_start << 12;
     source->len = len << 12;
-    
+
     return 0;
 }
 
@@ -139,6 +140,12 @@ void audio_mixer_init(void)
 {
     audio_mixer_set_callback(NULL, 0);
     prev_sound_buffer = NULL;
+    master_volume = 0x100;
+}
+
+void audio_mixer_set_master_volume(uint16_t vol)
+{
+    master_volume = vol;
 }
 
 void audio_mixer_step(void)
@@ -163,8 +170,8 @@ void audio_mixer_step(void)
             if (! source->spl) continue;
 
             switch (source->spl_type) {
-            case SPL_TYPE_8BIT:  sample += source->spl8[source->pos>>12] * source->volume; break;
-            case SPL_TYPE_16BIT: sample += (source->spl16[source->pos>>12] * source->volume) >> 8; break;
+            case SPL_TYPE_8BIT:  sample += (source->spl8[source->pos>>12] * source->volume * master_volume) >> 8; break;
+            case SPL_TYPE_16BIT: sample += (source->spl16[source->pos>>12] * source->volume * master_volume) >> 16; break;
             }
             source->pos += source->spl_advance;
             if (source->pos >= source->len) {
@@ -178,9 +185,9 @@ void audio_mixer_step(void)
 
         // mix callback source
         if (callback_source) {
-            sample += (callback_buffer[i] * callback_volume_local) >> 8;
+            sample += (callback_buffer[i] * callback_volume_local * master_volume) >> 16;
         }
-    
+
         // clamp result
         sample = clamp(sample);
         *sound_buffer++ = sample;

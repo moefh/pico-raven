@@ -116,13 +116,13 @@ static void draw_map_layer(struct DRAW_ROOM_INFO *dri, struct DRAW_ROOM_MAP_INFO
                 if (fx_tile == fx_tile_base) {
                     int loop_len = anim->loops[tile_num].len;
                     if (loop_len > 0) {
-                        tile_num = anim->loops[tile_num].start + (game_state.anim_step>>3) % loop_len;
+                        tile_num = anim->loops[tile_num].start + (game_state.frame_counter>>3) % loop_len;
                         use_tileset = anim_tileset;
                     }
                 } else if (fx_tile == fx_tile_base + 1) {
                     int loop_len = anim->loops[tile_num].len;
                     if (loop_len > 0) {
-                        tile_num = anim->loops[tile_num].start + (loop_len - 1 - (game_state.anim_step>>3)%loop_len) % loop_len;
+                        tile_num = anim->loops[tile_num].start + (loop_len - 1 - (game_state.frame_counter>>3)%loop_len) % loop_len;
                         use_tileset = anim_tileset;
                     }
                 }

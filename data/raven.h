@@ -165,6 +165,8 @@ enum RAVEN_ROOM_TRIGGER_TYPE {
    RAVEN_ROOM_TRIGGER_TYPE_DISABLE_ANIMATION,
    RAVEN_ROOM_TRIGGER_TYPE_CHANGE_TILES,
    RAVEN_ROOM_TRIGGER_TYPE_REMOVE_ENEMY,
+   RAVEN_ROOM_TRIGGER_TYPE_STOP_SFX,
+   RAVEN_ROOM_TRIGGER_TYPE_PLAY_SFX,
    RAVEN_ROOM_TRIGGER_TYPE_GET_UPGRADE,
    RAVEN_ROOM_TRIGGER_TYPE_GET_COLLECTABLE,
    RAVEN_ROOM_TRIGGER_TYPE_GET_PICKUP,
@@ -200,14 +202,14 @@ struct RAVEN_ROOM_TRIGGER_INFO {
         } door;
         struct {
             uint16_t enemy_id;
-            uint16_t enemy_type;
-            const struct RAVEN_SPRITE_ANIMATION *animation;
+            const struct RAVEN_ENEMY *enemy;
             uint8_t direction;
             uint16_t req_flag_id;
         } enemy_spawn;
         struct {
             uint16_t width;
             uint16_t height;
+            uint16_t interact_prompt_id;
             uint16_t set_effect_id;
             uint16_t set_flag_id;
             uint16_t req_flag_id;
@@ -242,14 +244,30 @@ struct RAVEN_ROOM_TRIGGER_INFO {
             uint16_t on_effect_id;
         } remove_enemy;
         struct {
+            const struct RAVEN_SFX *sfx;
+            uint16_t sfx_id;
+            uint16_t volume;
+            uint16_t pitch_shift;
+            uint16_t loop;
+            uint16_t on_effect_id;
+        } play_sfx;
+        struct {
+            uint16_t sfx_id;
+            uint16_t on_effect_id;
+        } stop_sfx;
+        struct {
             uint16_t get_upgrade_id;
+            uint16_t req_flag_id;
         } get_upgrade;
         struct {
             uint16_t get_collectable_id;
+            uint16_t interact_prompt_id;
+            uint16_t req_flag_id;
         } get_collectable;
         struct {
             uint16_t get_pickup_id;
             uint16_t respawn_delay;
+            const struct RAVEN_SFX *sfx;
         } get_pickup;
     };
 };
@@ -305,6 +323,55 @@ struct RAVEN_TILE_ANIMATION {
 
 #endif /* RAVEN_SKIP_STRUCTS_TILE_ANIMATION */
 
+#ifndef RAVEN_SKIP_STRUCTS_PLAYER_CHAR
+
+struct RAVEN_PLAYER_CHAR_SUIT {
+    const struct RAVEN_SPRITE_ANIMATION *animation;
+    uint16_t req_upgrade_id;
+};
+
+struct RAVEN_PLAYER_CHAR_WEAPON {
+    const struct RAVEN_SPRITE_ANIMATION *shoot_anim;
+    const struct RAVEN_SFX *shoot_sfx;
+    const struct RAVEN_SPRITE_ANIMATION *bullet_anim;
+    const struct RAVEN_SPRITE_ANIMATION *bullet_hit_anim;
+    const struct RAVEN_SFX *bullet_hit_sfx;
+
+    uint16_t req_collectable_id;
+    uint16_t ammo_pickup_id;
+    int8_t crouch_x;
+    int8_t crouch_y;
+    int8_t bullet_x;
+    int8_t bullet_y;
+    int16_t bullet_dx;
+    int16_t bullet_dy;
+    uint16_t damage;
+    uint8_t bullet_initial_delay;
+    uint8_t bullet_interval;
+    uint8_t shoot_anim_len;
+};
+
+struct RAVEN_PLAYER_CHAR {
+    const struct RAVEN_FONT *font;
+    const struct RAVEN_IMAGE *gamepad_sprite;
+    uint16_t num_suits;
+    uint16_t num_weapons;
+    const struct RAVEN_PLAYER_CHAR_SUIT *suits;
+    const struct RAVEN_PLAYER_CHAR_WEAPON *weapons;
+};
+
+#endif /* RAVEN_SKIP_STRUCTS_PLAYER_CHAR */
+
+#ifndef RAVEN_SKIP_STRUCTS_ENEMY
+
+struct RAVEN_ENEMY {
+    uint16_t type;
+    const struct RAVEN_SPRITE_ANIMATION *anim;
+    uint16_t health;
+};
+
+#endif /* RAVEN_SKIP_STRUCTS_ENEMY */
+
 #ifndef RAVEN_SKIP_STRUCTS_DATA_TABLES
 
 struct RAVEN_TABLE_ITEM {
@@ -337,9 +404,12 @@ extern const struct RAVEN_MAP raven_maps[];
 extern const struct RAVEN_SPRITE_ANIMATION raven_sprite_animations[];
 extern const struct RAVEN_TILE_ANIMATION raven_tile_animations[];
 extern const struct RAVEN_ROOM raven_rooms[];
+extern const struct RAVEN_PLAYER_CHAR raven_player_chars[];
+extern const struct RAVEN_ENEMY raven_enemies[];
 extern const struct RAVEN_TABLE_ITEM raven_table_upgrades[];
 extern const struct RAVEN_TABLE_ITEM raven_table_collectables[];
 extern const struct RAVEN_TABLE_ITEM raven_table_pickups[];
+extern const char *raven_table_interact_prompts[];
 
 #if RAVEN_ADD_ROOM_SCRIPTS
 extern const struct RAVEN_ROOM_SCRIPT *raven_room_script_table[];

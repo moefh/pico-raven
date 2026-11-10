@@ -21,6 +21,8 @@ add_executable(${PROJECT_NAME}
     src/savegame.c
     src/player.c
     src/enemy.c
+    src/bullet.c
+    src/effect.c
     src/draw_room.c
     src/sprite_shadow.c
     src/rooms/default.c

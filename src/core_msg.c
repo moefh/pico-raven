@@ -49,6 +49,14 @@ void msg_audio_init(int pio_num, int data_pin, int clock_pin_base, int sample_fr
   send_to_core1(&msg);
 }
 
+void msg_set_master_volume(uint16_t volume)
+{
+  union CORE_MSG msg;
+  msg.msg_header.type          = CORE1_MSG_TYPE_SET_MASTER_VOLUME;
+  msg.set_master_volume.volume = volume;
+  send_to_core1(&msg);
+}
+
 void msg_sfx_play_once(uint16_t sfx_id, const struct RAVEN_SFX *sfx, uint16_t volume, uint32_t pitch_shift)
 {
   union CORE_MSG msg;

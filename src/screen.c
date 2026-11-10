@@ -130,14 +130,65 @@ static void draw_joy_buttons(struct JOYSTICK *joy, int y)
 static void draw_player(void)
 {
     if (game_state.player.shadow_enabled) {
-        sprite_shadow_draw(game_state.player.sprite, sprite_shadow_colors);
+        sprite_shadow_draw(game_state.player.char_anim.sprite, sprite_shadow_colors);
     }
 
-    vga_image_draw_frame(game_state.player.sprite,
-                         game_state.player.sprite_frame,
-                         game_state.player.sprite_x - game_state.screen_x,
-                         game_state.player.sprite_y - game_state.screen_y + vga_image_screen.y_min,
+    vga_image_draw_frame(game_state.player.char_anim.sprite,
+                         game_state.player.char_anim.sprite_frame,
+                         game_state.player.char_anim.sprite_x - game_state.screen_x,
+                         game_state.player.char_anim.sprite_y - game_state.screen_y + vga_image_screen.y_min,
                          1);
+    if (game_state.player.weapon_frames_left) {
+        vga_image_draw_frame(game_state.player.weapon_anim.sprite,
+                             game_state.player.weapon_anim.sprite_frame,
+                             game_state.player.weapon_anim.sprite_x - game_state.screen_x,
+                             game_state.player.weapon_anim.sprite_y - game_state.screen_y + vga_image_screen.y_min,
+                             1);
+    }
+}
+
+static void draw_enemies(void)
+{
+    for (int i = 0; i < game_state.num_enemies; i++) {
+        struct GAME_ENEMY *enemy = &game_state.enemies[i];
+        if (enemy->hit_frames_left != 0) {
+            vga_image_draw_frame_mask(enemy->anim.sprite,
+                                      enemy->anim.sprite_frame,
+                                      enemy->anim.sprite_x - game_state.screen_x,
+                                      enemy->anim.sprite_y - game_state.screen_y + vga_image_screen.y_min,
+                                      0x07);
+        } else {
+            vga_image_draw_frame(enemy->anim.sprite,
+                                 enemy->anim.sprite_frame,
+                                 enemy->anim.sprite_x - game_state.screen_x,
+                                 enemy->anim.sprite_y - game_state.screen_y + vga_image_screen.y_min,
+                                 1);
+        }
+    }
+}
+
+static void draw_bullets(void)
+{
+    for (int i = 0; i < game_state.num_bullets; i++) {
+        struct GAME_BULLET *bullet = &game_state.bullets[i];
+        vga_image_draw_frame(bullet->anim.sprite,
+                             bullet->anim.sprite_frame,
+                             bullet->anim.sprite_x - game_state.screen_x,
+                             bullet->anim.sprite_y - game_state.screen_y + vga_image_screen.y_min,
+                             1);
+    }
+}
+
+static void draw_effects(void)
+{
+    for (int i = 0; i < game_state.num_effects; i++) {
+        struct GAME_EFFECT *effect = &game_state.effects[i];
+        vga_image_draw_frame(effect->anim.sprite,
+                             effect->anim.sprite_frame,
+                             effect->anim.sprite_x - game_state.screen_x,
+                             effect->anim.sprite_y - game_state.screen_y + vga_image_screen.y_min,
+                             1);
+    }
 }
 
 static void draw_room_items(const struct RAVEN_ROOM *room)
@@ -148,6 +199,7 @@ static void draw_room_items(const struct RAVEN_ROOM *room)
         switch (trg->type) {
         case RAVEN_ROOM_TRIGGER_TYPE_GET_UPGRADE:
             if (trg->get_upgrade.get_upgrade_id != 0xffff &&
+                (trg->get_upgrade.req_flag_id == 0xffff || game_state_has_flag(trg->get_upgrade.req_flag_id)) &&
                 ! game_state_has_upgrade(trg->get_upgrade.get_upgrade_id)) {
                 sprite = raven_table_upgrades[trg->get_upgrade.get_upgrade_id].sprite;
             }
@@ -170,6 +222,53 @@ static void draw_room_items(const struct RAVEN_ROOM *room)
     }
 }
 
+static void draw_texts(void)
+{
+    if (game_state.prompt.text != NULL) {
+        const char *text = game_state.prompt.text;
+        const struct VGA_IMAGE *sprite = NULL;
+        int sprite_frame = 0;
+        if (text[0] == '!') {
+            sprite = game_state.player.player_char->gamepad_sprite;
+            switch (text[1]) {
+            case 'B': case 'b': sprite_frame = 0; text += 2; break;
+            case 'A': case 'a': sprite_frame = 1; text += 2; break;
+            case 'Y': case 'y': sprite_frame = 2; text += 2; break;
+            case 'X': case 'x': sprite_frame = 3; text += 2; break;
+            default: sprite = NULL;
+            }
+            if (*text == ' ') text++;
+        }
+
+        const struct VGA_FONT *font = game_state.player.player_char->font;
+        int x = game_state.prompt.x - strlen(text) * font->w / 2 - game_state.screen_x;
+        int y = game_state.prompt.y - font->h - game_state.screen_y + vga_image_screen.y_min;
+
+        if (sprite != NULL) {
+            int sx = x - sprite->width/2 - 3;
+            int sy = y - sprite->height/2 + font->h/2;
+            vga_image_draw_frame(sprite, sprite_frame, sx, sy, 1);
+            x += sprite->width / 2 + 3;
+        }
+
+        const struct VGA_FONT *old_font = font_set_font(font);
+        uint8_t old_color = font_set_color(0xc0);
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                if (dx != 0 && dy != 0) {
+                    font_move(x+dx, y+dy);
+                    font_print(text);
+                }
+            }
+        }
+        font_set_color(0xff);
+        font_move(x, y);
+        font_print(text);
+        font_set_color(old_color);
+        font_set_font(old_font);
+    }
+}
+
 static void draw_room(void)
 {
     struct DRAW_ROOM_INFO *info = draw_room_init_frame(&draw_frame_arena);
@@ -178,29 +277,25 @@ static void draw_room(void)
     draw_room_bg(info);
     RUN_PERF(room_bg_us);
 
+    draw_bullets();
     draw_player();
     RUN_PERF(player_us);
 
     draw_room_items(room);
-    for (int i = 0; i < game_state.num_enemies; i++) {
-        struct GAME_ENEMY *enemy = &game_state.enemies[i];
-        vga_image_draw_frame(enemy->sprite,
-                             enemy->sprite_frame,
-                             enemy->sprite_x - game_state.screen_x,
-                             enemy->sprite_y - game_state.screen_y + vga_image_screen.y_min,
-                             1);
-    }
+    draw_enemies();
     RUN_PERF(enemies_us);
 
     draw_room_fg(info);
+    draw_effects();
+    draw_texts();
     RUN_PERF(room_fg_us);
 
     if (game_state.display.show_perf) {
         // collision rect
         int sx = game_state.player.x - game_state.screen_x;
         int sy = game_state.player.y - game_state.screen_y;
-        int w = game_state.player.anim->collision.w;
-        int h = game_state.player.anim->collision.h;
+        int w = game_state.player.char_anim.anim->collision.w;
+        int h = game_state.player.char_anim.anim->collision.h;
         for (int x = 0; x < w; x++) {
             vga_screen.lines8[SCREEN_HEADER_HEIGHT+sy][sx+x] = 0x38;
             vga_screen.lines8[SCREEN_HEADER_HEIGHT+sy+h-1][sx+x] = 0x38;
@@ -244,7 +339,7 @@ void screen_render(struct JOYSTICK *joy)
         font_move(10, 20); font_printf("pos  %4ld,%-4ld\n", game_state.player.x, game_state.player.y);
         font_move(10, 30); font_printf("vel %5ld,%-5ld\n", game_state.player_control.dx, game_state.player_control.dy);
         font_move(10, 40); font_printf("state %d\n", game_state.player.state);
-        font_move(10, 50); font_printf("frame %d\n", game_state.player.anim_frame >> 8);
+        font_move(10, 50); font_printf("frame %d\n", game_state.player.char_anim.frame >> 8);
     }
 
     update_perf_history(&game_state.perf);

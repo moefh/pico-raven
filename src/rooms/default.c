@@ -11,14 +11,14 @@ void default_room_init(uint32_t room_id)
         const struct RAVEN_ROOM_TRIGGER_INFO *tr = &room->triggers[t];
         switch (tr->type) {
         case RAVEN_ROOM_TRIGGER_TYPE_PLAYER_SPAWN:
-            game_state.player.x = tr->x + (4*TILE_SIZE - game_state.player.anim->collision.w) / 2;
-            game_state.player.y = tr->y + 4*TILE_SIZE - game_state.player.anim->collision.h;
+            game_state.player.x = tr->x + (4*TILE_SIZE - game_state.player.char_anim.anim->collision.w) / 2;
+            game_state.player.y = tr->y + 4*TILE_SIZE - game_state.player.char_anim.anim->collision.h;
             game_state.player.direction = tr->player_spawn.direction;
             break;
 
         case RAVEN_ROOM_TRIGGER_TYPE_GET_PICKUP:
             if (game_state.num_pickup_respawns < GAME_STATE_MAX_ROOM_PICKUPS) {
-                struct PICKUP_RESPAWN *respawn = &game_state.pickup_respawn[game_state.num_pickup_respawns++];
+                struct GAME_PICKUP_RESPAWN *respawn = &game_state.pickup_respawn[game_state.num_pickup_respawns++];
                 respawn->trigger_id = tr->trigger_id;
                 respawn->delay = 0;
             }
@@ -30,6 +30,8 @@ void default_room_init(uint32_t room_id)
 
 void default_room_update(void)
 {
-    game_state_update_room_enemies();
+    game_state_update_enemies();
+    game_state_update_bullets();
+    game_state_update_effects();
     game_state_advance_pickup_trigger_respawns();
 }

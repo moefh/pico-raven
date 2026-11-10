@@ -28,14 +28,18 @@ void font_printf(const char *fmt, ...)
 }
 #endif
 
-void font_set_font(const struct VGA_FONT *new_font)
+const struct VGA_FONT *font_set_font(const struct VGA_FONT *new_font)
 {
+    const struct VGA_FONT *old_font = vga_font;
     vga_font = new_font;
+    return old_font;
 }
 
-void font_set_color(uint8_t color)
+uint8_t font_set_color(uint8_t color)
 {
+    uint8_t old_color = vga_font_color;
     vga_font_color = color;
+    return old_color;
 }
 
 void font_set_border(bool enable, uint8_t color)

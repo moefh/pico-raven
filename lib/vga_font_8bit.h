@@ -29,8 +29,8 @@ enum FONT_ALIGNMENT {
     FONT_ALIGN_RIGHT
 };
 
-void font_set_font(const struct VGA_FONT *font);
-void font_set_color(uint8_t color);
+const struct VGA_FONT * font_set_font(const struct VGA_FONT *font);
+uint8_t font_set_color(uint8_t color);
 void font_set_border(bool enable, uint8_t color);
 void font_move(uint32_t x, uint32_t y);
 void font_align(enum FONT_ALIGNMENT alignment);

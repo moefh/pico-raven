@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 
 #include "player.h"
 #include "collision.h"
@@ -6,66 +7,84 @@
 #include "lib/joystick.h"
 #include "lib/mem.h"
 
+static inline void set_state(struct GAME_PLAYER *pl, int state)
+{
+    pl->state = state;
+    pl->char_anim.frame = 0;
+}
+
+static void update_animation(struct GAME_ANIMATION *anim, struct GAME_PLAYER *pl, bool no_arms)
+{
+    int anim_loop = 0;
+    switch (pl->state) {
+    case PLAYER_STATE_STAND:  anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_STAND;  break;
+    case PLAYER_STATE_WALK:   anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_RUN;    break;
+    case PLAYER_STATE_JUMP:   anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_JUMP;   break;
+    case PLAYER_STATE_FALL:   anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_FALL;   break;
+    case PLAYER_STATE_FALL2:  anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_FALL2;  break;
+    case PLAYER_STATE_CROUCH: anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_CROUCH; break;
+    }
+    anim->loop = anim_loop + ((no_arms) ? PLAYER_NUM_STATES : 0);
+    game_update_animation(anim, pl->x, pl->y, pl->direction);
+}
+
 void player_update_sprite_info(void)
 {
-    struct GAME_CHARACTER *pl = &game_state.player;
+    struct GAME_PLAYER *pl = &game_state.player;
 
-    switch (pl->state) {
-    case PLAYER_STATE_STAND:  pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_STAND; break;
-    case PLAYER_STATE_WALK:   pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_RUN; break;
-    case PLAYER_STATE_JUMP:   pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_JUMP; break;
-    case PLAYER_STATE_FALL:   pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_FALL; break;
-    case PLAYER_STATE_FALL2:  pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_FALL2; break;
-    case PLAYER_STATE_CROUCH: pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_CROUCH; break;
-    }
-    const struct RAVEN_SPRITE_ANIMATION_LOOP *loop = &pl->anim->loops[pl->anim_loop];
-    int loop_frame = pl->anim_frame >> 8;
-    if (loop_frame >= loop->length) {
-        if (loop->dont_loop) {
-            loop_frame = loop->length - 1;
-            pl->anim_frame = (loop_frame) << 8;
-        } else {
-            loop_frame = 0;
-            pl->anim_frame &= 0xff;
-        }
-    }
-    pl->sprite_frame = pl->anim->frame_indices[loop->offset + loop_frame];
-    if (pl->direction == RAVEN_DIR_LEFT) {
-        pl->sprite_frame += pl->sprite->num_frames/2;
-        pl->sprite_x = pl->x - (pl->sprite->width - (pl->anim->collision.x + pl->anim->collision.w));
-        pl->sprite_y = pl->y - pl->anim->collision.y;
+    if (pl->weapon_frames_left != 0) {
+        update_animation(&pl->char_anim, pl, true);
+        update_animation(&pl->weapon_anim, pl, false);
     } else {
-        pl->sprite_x = pl->x - pl->anim->collision.x;
-        pl->sprite_y = pl->y - pl->anim->collision.y;
+        update_animation(&pl->char_anim, pl, false);
     }
     if (pl->shadow_enabled) {
-        sprite_shadow_add_frame(pl->sprite_frame, pl->sprite_x, pl->sprite_y);
+        sprite_shadow_add_frame(pl->char_anim.sprite_frame, pl->char_anim.sprite_x, pl->char_anim.sprite_y);
     }
 }
 
 void player_set_sprite_anim(int animation_id)
 {
     const struct RAVEN_SPRITE_ANIMATION *anim = &raven_sprite_animations[animation_id];
-    game_state.player.sprite = anim->sprite;
-    game_state.player.anim = anim;
+    game_state.player.char_anim.sprite = anim->sprite;
+    game_state.player.char_anim.anim = anim;
+}
+
+static void set_weapon_sprite_anim(const struct RAVEN_SPRITE_ANIMATION *anim)
+{
+    if (game_state.player.weapon_anim.anim != anim) {
+        game_state.player.weapon_anim.sprite = anim->sprite;
+        game_state.player.weapon_anim.anim = anim;
+        game_state.player.weapon_anim.frame = 0;
+    }
 }
 
 void player_init(void)
 {
-    struct GAME_CHARACTER *pl = &game_state.player;
+    struct GAME_PLAYER *pl = &game_state.player;
+    pl->char_anim.anim = pl->player_char->suits[pl->suit_index].animation;
+    pl->char_anim.sprite = pl->char_anim.anim->sprite;
+
     pl->x = 0;
     pl->y = 0;
     pl->state = PLAYER_STATE_STAND;
     pl->direction = RAVEN_DIR_RIGHT;
-    pl->anim_frame = 0;
+    pl->weapon_frames_left = 0;
+    pl->shoot_wait_frames = 0;
+    pl->weapon_index = 0xff;
+    pl->shoot_now = 0;
     pl->shadow_enabled = 0;
+    pl->last_shot_frame = 0;
+
+    pl->char_anim.frame = 0;
+    pl->weapon_anim.frame = 0;
 
     player_update_sprite_info();
 }
 
 void player_update(struct JOYSTICK *joy)
 {
-    struct GAME_CHARACTER *pl = &game_state.player;
+    struct GAME_PLAYER *pl = &game_state.player;
     struct GAME_PLAYER_CONTROL *plc = &game_state.player_control;
 
     //printf("update player: at (%ld,%ld), delta=0x(%lx,%lx)=(%ld,%ld)\n", pl->x, pl->y, plc->dx, plc->dy, plc->dx>>8, plc->dy>>8);
@@ -74,44 +93,47 @@ void player_update(struct JOYSTICK *joy)
     struct COLLISION_RECT rect = {
         .x = pl->x,
         .y = pl->y,
-        .w = pl->anim->collision.w,
-        .h = pl->anim->collision.h,
+        .w = pl->char_anim.anim->collision.w,
+        .h = pl->char_anim.anim->collision.h,
     };
     int collision = collision_move(&rect, dx, dy);
     if (collision & COLLISION_FLAGS_DOWN) {
         plc->dy = 0;
         if (JOY_BTN_HELD(joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
-            pl->state = PLAYER_STATE_WALK;
+            set_state(pl, PLAYER_STATE_WALK);
         } else if (pl->state != PLAYER_STATE_CROUCH) {
-            pl->state = PLAYER_STATE_STAND;
+            set_state(pl, PLAYER_STATE_STAND);
         }
-        pl->anim_frame = 0;
     } else if (collision & COLLISION_FLAGS_UP) {
         if (plc->dy < 0) {
             plc->dy = 0;
         }
         if (pl->state == PLAYER_STATE_JUMP) {
-            pl->state = PLAYER_STATE_FALL;
-            pl->anim_frame = 0;
+            set_state(pl, PLAYER_STATE_FALL);
         }
     } else if (pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK || pl->state == PLAYER_STATE_CROUCH) {
         int y = rect.y;
         if (collision_move(&rect, 0, 1) == 0) {
-            pl->state = PLAYER_STATE_FALL;
-            pl->anim_frame = 0;
+            set_state(pl, PLAYER_STATE_FALL);
         }
         rect.y = y;
     }
 
     pl->x = rect.x;
     pl->y = rect.y;
-    pl->anim_frame += pl->anim->loops[pl->anim_loop].frame_adv + 1; // [0-255] -> [1-256]
+    pl->char_anim.frame += pl->char_anim.anim->loops[pl->char_anim.loop].frame_adv + 1; // [0-255] -> [1-256]
+    if (pl->weapon_frames_left != 0) {
+        pl->weapon_frames_left--;
+        pl->weapon_anim.frame += pl->weapon_anim.anim->loops[pl->weapon_anim.loop].frame_adv + 1;
+    } else {
+        pl->weapon_index = 0xff;
+        pl->weapon_anim.frame = 0;
+    }
     if (pl->state == PLAYER_STATE_FALL) {
         // reaching end of animation in the "FALL" state moves to the "FALL2" state
-        const struct RAVEN_SPRITE_ANIMATION_LOOP *loop = &pl->anim->loops[pl->anim_loop];
-        if ((pl->anim_frame >> 8) >= loop->length) {
-            pl->state = PLAYER_STATE_FALL2;
-            pl->anim_frame = 0;
+        const struct RAVEN_SPRITE_ANIMATION_LOOP *loop = &pl->char_anim.anim->loops[pl->char_anim.loop];
+        if ((pl->char_anim.frame >> 8) >= loop->length) {
+            set_state(pl, PLAYER_STATE_FALL2);
         }
     }
     player_update_sprite_info();
@@ -126,18 +148,42 @@ void player_control_init(void)
 
 void player_control_update(struct JOYSTICK *joy)
 {
-    struct GAME_CHARACTER *pl = &game_state.player;
+    struct GAME_PLAYER *pl = &game_state.player;
     struct GAME_PLAYER_CONTROL *plc = &game_state.player_control;
+
+    if (JOY_BTN_HELD(joy, JOY_BTN_A) || JOY_BTN_HELD(joy, JOY_BTN_Y)) {
+        int weapon_index = JOY_BTN_HELD(joy, JOY_BTN_A) ? 1 : 0;
+        const struct RAVEN_PLAYER_CHAR_WEAPON *weapon = &pl->player_char->weapons[weapon_index];
+        if (pl->weapon_index != weapon_index) {
+            pl->weapon_index = weapon_index;
+            set_weapon_sprite_anim(weapon->shoot_anim);
+            pl->shoot_wait_frames = weapon->bullet_initial_delay;
+        }
+        pl->weapon_frames_left = weapon->shoot_anim_len;
+        if (pl->shoot_wait_frames == 0 && game_state.frame_counter - pl->last_shot_frame > weapon->bullet_interval) {
+            if (weapon->bullet_initial_delay > 0) {
+                pl->shoot_wait_frames = weapon->bullet_initial_delay;
+            } else {
+                pl->shoot_wait_frames = 1;  // will shoot immediatelly below
+            }
+        }
+    }
+
+    if (pl->shoot_wait_frames > 0) {
+        pl->shoot_wait_frames -= 1;
+        if (pl->shoot_wait_frames == 0) {
+            pl->last_shot_frame = game_state.frame_counter;
+            pl->shoot_now = 1;
+        }
+    }
 
     // walk
     if (pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK || pl->state == PLAYER_STATE_CROUCH) {
         if (pl->state != PLAYER_STATE_WALK && JOY_BTN_HELD(joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
-            pl->state = PLAYER_STATE_WALK;
-            pl->anim_frame = 0;
+            set_state(pl, PLAYER_STATE_WALK);
         } else if (pl->state == PLAYER_STATE_WALK && ! JOY_BTN_HELD(joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
-            pl->state = PLAYER_STATE_STAND;
-            pl->anim_loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_STAND;
-            pl->anim_frame = 0;
+            set_state(pl, PLAYER_STATE_STAND);
+            //pl->char_anim.loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_STAND; // TODO: is this needed?
         }
         if (plc->dx != 0) {
             if (plc->dx > 0) {
@@ -167,12 +213,10 @@ void player_control_update(struct JOYSTICK *joy)
 
     // crouch
     if (pl->state == PLAYER_STATE_STAND && JOY_BTN_HELD(joy, JOY_BTN_DOWN)) {
-        pl->state = PLAYER_STATE_CROUCH;
-        pl->anim_frame = 0;
+        set_state(pl, PLAYER_STATE_CROUCH);
     }
     if (pl->state == PLAYER_STATE_CROUCH && JOY_BTN_HELD(joy, JOY_BTN_UP|JOY_BTN_B)) {
-        pl->state = PLAYER_STATE_STAND;
-        pl->anim_frame = 0;
+        set_state(pl, PLAYER_STATE_STAND);
     }
 
     // limit x speed
@@ -188,8 +232,7 @@ void player_control_update(struct JOYSTICK *joy)
     // jump
     if ((pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK) && JOY_BTN_PRESSED(joy, JOY_BTN_B)) {
         plc->dy = DY_JUMP_START;
-        pl->state = PLAYER_STATE_JUMP;
-        pl->anim_frame = 0;
+        set_state(pl, PLAYER_STATE_JUMP);
     }
 
     // hold jump / start fall
@@ -197,8 +240,7 @@ void player_control_update(struct JOYSTICK *joy)
         if (JOY_BTN_HELD(joy, JOY_BTN_B) && plc->dy < 0) {
             plc->dy += DY_JUMP_HOLD;
         } else {
-            pl->state = PLAYER_STATE_FALL;
-            pl->anim_frame = 0;
+            set_state(pl, PLAYER_STATE_FALL);
         }
     }
 

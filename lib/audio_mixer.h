@@ -17,6 +17,7 @@ extern "C" {
 
 void audio_mixer_init(void);
 void audio_mixer_step(void);
+void audio_mixer_set_master_volume(uint16_t vol);
 
 void audio_mixer_set_callback(audio_callback func, int16_t volume);
 void audio_mixer_set_callback_volume(int16_t volume);

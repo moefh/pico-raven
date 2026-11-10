@@ -44,6 +44,13 @@ static void process_message(union CORE_MSG *msg)
         }
         return;
 
+    case CORE1_MSG_TYPE_SET_MASTER_VOLUME:
+        {
+            struct CORE1_MSG_SET_MASTER_VOLUME *m = &msg->set_master_volume;
+            audio_mixer_set_master_volume(m->volume);
+        }
+        return;
+
     case CORE1_MSG_TYPE_SFX_PLAY:
         {
             struct CORE1_MSG_SFX_PLAY *m = &msg->sfx_play;

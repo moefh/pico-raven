@@ -27,10 +27,24 @@ struct COLLISION_RECT {
 };
 
 int collision_move(struct COLLISION_RECT *rect, int dx, int dy);
+int room_tiles_block_rect(struct COLLISION_RECT *rect);
 
 static inline int collision_is_point_in_rect(int x, int y, struct COLLISION_RECT *rect)
 {
     return x >= rect->x && y >= rect->y && x < rect->x + rect->w && y < rect->y + rect->h;
+}
+
+static inline int collision_rects_intersect(struct COLLISION_RECT *ra, struct COLLISION_RECT *rb)
+{
+    int a1_x = ra->x;
+    int a2_x = ra->x + ra->w;
+    int a1_y = ra->y;
+    int a2_y = ra->y + ra->h;
+    int b1_x = rb->x;
+    int b2_x = rb->x + rb->w;
+    int b1_y = rb->y;
+    int b2_y = rb->y + rb->h;
+    return a1_x < b2_x && b1_x < a2_x && a1_y < b2_y && b1_y < a2_y;
 }
 
 static inline uint8_t collision_get_room_tile_at(int tx, int ty)

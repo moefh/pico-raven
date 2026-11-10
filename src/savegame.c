@@ -41,13 +41,11 @@ static struct READ_SAVE_DATA init_read(const uint8_t *data, int32_t size)
     };
 }
 
-#if 0
 static uint8_t read_u8(struct READ_SAVE_DATA *save)
 {
     if (save->data + 1 > save->end) { save->error = 1; return 0; }
     return *save->data++;
 }
-#endif
 
 static uint16_t read_u16(struct READ_SAVE_DATA *save)
 {
@@ -101,13 +99,11 @@ static struct WRITE_SAVE_DATA init_write(uint8_t *data, int32_t size)
     };
 }
 
-#if 0
 static void write_u8(struct WRITE_SAVE_DATA *save, uint8_t data)
 {
     if (save->data + 1 > save->end) { save->error = 1; return; }
     *save->data++ = data;
 }
-#endif
 
 static void write_u16(struct WRITE_SAVE_DATA *save, uint16_t data)
 {
@@ -145,6 +141,8 @@ static int deserialize_game(struct READ_SAVE_DATA *save, struct SAVEGAME *savega
     if (memcmp(magic, savegame_magic, 4) != 0) return 1;
 
     savegame->room_id = read_u16(save);
+    savegame->player_char_id = read_u16(save);
+    savegame->player_suit_index = read_u8(save);
 
     return save->error;
 }
@@ -153,6 +151,8 @@ static int serialize_game(struct WRITE_SAVE_DATA *save, const struct SAVEGAME *s
 {
     write_bytes(save, savegame_magic, 4);
     write_u16(save, savegame->room_id);
+    write_u16(save, savegame->player_char_id);
+    write_u8(save, savegame->player_suit_index);
 
     return save->error;
 }
