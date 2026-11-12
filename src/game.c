@@ -285,12 +285,14 @@ static void process_joy_input(struct JOYSTICK *joy)
     player_control_update(joy);
 }
 
-static void update_check_room_items(struct JOYSTICK *joy)
+static void check_room_triggers(struct JOYSTICK *joy)
 {
-    uint32_t item_flags = ((1u<<RAVEN_ROOM_TRIGGER_TYPE_GET_UPGRADE) |
-                           (1u<<RAVEN_ROOM_TRIGGER_TYPE_GET_PICKUP) |
-                           (1u<<RAVEN_ROOM_TRIGGER_TYPE_GET_COLLECTABLE));
-    const struct RAVEN_ROOM_TRIGGER_INFO *tr = game_state_check_player_trigger(item_flags);
+    uint32_t trigger_flags = ((1u<<RAVEN_ROOM_TRIGGER_TYPE_GET_UPGRADE) |
+                              (1u<<RAVEN_ROOM_TRIGGER_TYPE_GET_PICKUP) |
+                              (1u<<RAVEN_ROOM_TRIGGER_TYPE_GET_COLLECTABLE) |
+                              (1u<<RAVEN_ROOM_TRIGGER_TYPE_WALL_BUTTON) |
+                              (1u<<RAVEN_ROOM_TRIGGER_TYPE_DETECTOR_BUTTON));
+    const struct RAVEN_ROOM_TRIGGER_INFO *tr = game_state_check_player_trigger(trigger_flags);
     if (tr != NULL) {
         switch (tr->type) {
         case RAVEN_ROOM_TRIGGER_TYPE_GET_UPGRADE:
@@ -298,6 +300,7 @@ static void update_check_room_items(struct JOYSTICK *joy)
                 game_state_set_upgrade(tr->get_upgrade.get_upgrade_id);
             }
             break;
+
         case RAVEN_ROOM_TRIGGER_TYPE_GET_PICKUP:
             if (game_state_is_pickup_trigger_enabled(tr->trigger_id)) {
                 game_state_disable_pickup_trigger(tr->trigger_id, tr->get_pickup.respawn_delay);
@@ -306,6 +309,7 @@ static void update_check_room_items(struct JOYSTICK *joy)
                 }
             }
             break;
+
         case RAVEN_ROOM_TRIGGER_TYPE_GET_COLLECTABLE:
             if ((tr->get_collectable.req_flag_id == 0xffff || game_state_has_flag(tr->get_collectable.req_flag_id)) &&
                 tr->get_collectable.get_collectable_id != 0xffff &&
@@ -321,17 +325,7 @@ static void update_check_room_items(struct JOYSTICK *joy)
                 }
             }
             break;
-        }
-    }
-}
 
-static void update_check_room_buttons(struct JOYSTICK *joy)
-{
-    uint32_t button_flags = ((1u<<RAVEN_ROOM_TRIGGER_TYPE_WALL_BUTTON) |
-                             (1u<<RAVEN_ROOM_TRIGGER_TYPE_DETECTOR_BUTTON));
-    const struct RAVEN_ROOM_TRIGGER_INFO *tr = game_state_check_player_trigger(button_flags);
-    if (tr != NULL) {
-        switch (tr->type) {
         case RAVEN_ROOM_TRIGGER_TYPE_DETECTOR_BUTTON:
             if (! game_state_has_effect(tr->detector_button.set_effect_id)) {
                 int collectable_ok = (tr->detector_button.req_collectable_id == 0xffff ||
@@ -362,8 +356,10 @@ static void update_check_room_buttons(struct JOYSTICK *joy)
                         game_state.prompt.text = raven_table_interact_prompts[tr->wall_button.interact_prompt_id];
                     }
                     if (JOY_BTN_PRESSED(joy, JOY_BTN_X)) {
-                        game_state_activate_effect(tr->wall_button.set_effect_id);
-                        game_state_set_effect(tr->wall_button.set_effect_id);
+                        if (tr->wall_button.set_effect_id != 0xffff) {
+                            game_state_activate_effect(tr->wall_button.set_effect_id);
+                            game_state_set_effect(tr->wall_button.set_effect_id);
+                        }
                         if (tr->wall_button.set_flag_id != 0xffff && ! game_state_has_flag(tr->wall_button.set_flag_id)) {
                             game_state_set_flag(tr->wall_button.set_flag_id);
                             game_state_spawn_room_enemies(tr->wall_button.set_flag_id);
@@ -395,8 +391,7 @@ static void update_game_state(struct JOYSTICK *joy)
     }
 
     // update room
-    update_check_room_items(joy);
-    update_check_room_buttons(joy);
+    check_room_triggers(joy);
     const struct RAVEN_ROOM_TRIGGER_INFO *door = game_state_check_player_trigger(1<<RAVEN_ROOM_TRIGGER_TYPE_DOOR);
     if (door != NULL && (door->door.req_flag_id == 0xffff || game_state_has_flag(door->door.req_flag_id))) {
         game_state.room_transition.enabled = true;

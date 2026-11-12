@@ -231,10 +231,10 @@ static void draw_texts(void)
         if (text[0] == '!') {
             sprite = game_state.player.player_char->gamepad_sprite;
             switch (text[1]) {
-            case 'B': case 'b': sprite_frame = 0; text += 2; break;
-            case 'A': case 'a': sprite_frame = 1; text += 2; break;
-            case 'Y': case 'y': sprite_frame = 2; text += 2; break;
-            case 'X': case 'x': sprite_frame = 3; text += 2; break;
+            case 'B': sprite_frame = 0; text += 2; break;
+            case 'A': sprite_frame = 1; text += 2; break;
+            case 'Y': sprite_frame = 2; text += 2; break;
+            case 'X': sprite_frame = 3; text += 2; break;
             default: sprite = NULL;
             }
             if (*text == ' ') text++;
@@ -242,7 +242,7 @@ static void draw_texts(void)
 
         const struct VGA_FONT *font = game_state.player.player_char->font;
         int x = game_state.prompt.x - strlen(text) * font->w / 2 - game_state.screen_x;
-        int y = game_state.prompt.y - font->h - game_state.screen_y + vga_image_screen.y_min;
+        int y = game_state.prompt.y - 6 - font->h - game_state.screen_y + vga_image_screen.y_min;
 
         if (sprite != NULL) {
             int sx = x - sprite->width/2 - 3;
@@ -252,7 +252,7 @@ static void draw_texts(void)
         }
 
         const struct VGA_FONT *old_font = font_set_font(font);
-        uint8_t old_color = font_set_color(0xc0);
+        uint8_t old_color = font_set_color(0x00);
         for (int dy = -1; dy <= 1; dy++) {
             for (int dx = -1; dx <= 1; dx++) {
                 if (dx != 0 && dy != 0) {
@@ -278,10 +278,10 @@ static void draw_room(void)
     RUN_PERF(room_bg_us);
 
     draw_bullets();
+    draw_room_items(room);
     draw_player();
     RUN_PERF(player_us);
 
-    draw_room_items(room);
     draw_enemies();
     RUN_PERF(enemies_us);
 
@@ -291,7 +291,6 @@ static void draw_room(void)
     RUN_PERF(room_fg_us);
 
     if (game_state.display.show_perf) {
-        // collision rect
         int sx = game_state.player.x - game_state.screen_x;
         int sy = game_state.player.y - game_state.screen_y;
         int w = game_state.player.char_anim.anim->collision.w;
