@@ -334,7 +334,6 @@ static void check_room_triggers(struct JOYSTICK *joy)
                                game_state_has_flag(tr->detector_button.req_flag_id));
                 if (collectable_ok && flag_ok) {
                     game_state_activate_effect(tr->detector_button.set_effect_id);
-                    game_state_set_effect(tr->detector_button.set_effect_id);
                     if (tr->detector_button.set_flag_id != 0xffff && ! game_state_has_flag(tr->detector_button.set_flag_id)) {
                         game_state_set_flag(tr->detector_button.set_flag_id);
                         game_state_spawn_room_enemies(tr->detector_button.set_flag_id);
@@ -358,7 +357,6 @@ static void check_room_triggers(struct JOYSTICK *joy)
                     if (JOY_BTN_PRESSED(joy, JOY_BTN_X)) {
                         if (tr->wall_button.set_effect_id != 0xffff) {
                             game_state_activate_effect(tr->wall_button.set_effect_id);
-                            game_state_set_effect(tr->wall_button.set_effect_id);
                         }
                         if (tr->wall_button.set_flag_id != 0xffff && ! game_state_has_flag(tr->wall_button.set_flag_id)) {
                             game_state_set_flag(tr->wall_button.set_flag_id);
@@ -463,6 +461,7 @@ void game_state_activate_effect(uint32_t effect_id)
                 }
             }
             break;
+
         case RAVEN_ROOM_TRIGGER_TYPE_CHANGE_TILES:
             if (tr->change_tiles.on_effect_id == effect_id) {
                 const struct RAVEN_MAP_TILE_CHANGE *change = get_map_tile_change(tr->change_tiles.map_index,
@@ -493,6 +492,7 @@ void game_state_activate_effect(uint32_t effect_id)
                 }
             }
             break;
+
         case RAVEN_ROOM_TRIGGER_TYPE_DISABLE_ANIMATION:
             if (tr->disable_animation.on_effect_id == effect_id) {
                 int xs = clamp(tr->x / TILE_SIZE, 0, game_state.room_tiles_w-1);
@@ -513,6 +513,13 @@ void game_state_activate_effect(uint32_t effect_id)
             }
             break;
 
+        case RAVEN_ROOM_TRIGGER_TYPE_PLAY_ANIMATION:
+            if (tr->play_animation.on_effect_id == effect_id) {
+                effect_spawn_animation(tr->x, tr->y, tr->play_animation.set_effect_id, tr->play_animation.set_flag_id,
+                                       tr->play_animation.anim);
+            }
+            break;
+
         case RAVEN_ROOM_TRIGGER_TYPE_PLAY_SFX:
             if (tr->play_sfx.on_effect_id == effect_id) {
                 if (tr->play_sfx.loop) {
@@ -529,6 +536,8 @@ void game_state_activate_effect(uint32_t effect_id)
             }
         }
     }
+
+    game_state_set_effect(effect_id);
 }
 
 void game_update_animation(struct GAME_ANIMATION *anim, int x, int y, int direction)

@@ -97,7 +97,7 @@ void bullet_update_all(void)
         if (collided) {
             int x = (bullet->x >> 8) + bullet->anim.anim->collision.w / 2;
             int y = (bullet->y >> 8) + bullet->anim.anim->collision.h / 2;
-            effect_spawn(x, y, 0, bullet->weapon_index);
+            effect_spawn_for_weapon(x, y, RAVEN_DIR_RIGHT, bullet->weapon_index);
             remove_bullet(i);
             i--;
         } else {

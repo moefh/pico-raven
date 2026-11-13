@@ -165,8 +165,9 @@ enum RAVEN_ROOM_TRIGGER_TYPE {
    RAVEN_ROOM_TRIGGER_TYPE_DISABLE_ANIMATION,
    RAVEN_ROOM_TRIGGER_TYPE_CHANGE_TILES,
    RAVEN_ROOM_TRIGGER_TYPE_REMOVE_ENEMY,
-   RAVEN_ROOM_TRIGGER_TYPE_STOP_SFX,
+   RAVEN_ROOM_TRIGGER_TYPE_PLAY_ANIMATION,
    RAVEN_ROOM_TRIGGER_TYPE_PLAY_SFX,
+   RAVEN_ROOM_TRIGGER_TYPE_STOP_SFX,
    RAVEN_ROOM_TRIGGER_TYPE_GET_UPGRADE,
    RAVEN_ROOM_TRIGGER_TYPE_GET_COLLECTABLE,
    RAVEN_ROOM_TRIGGER_TYPE_GET_PICKUP,
@@ -243,6 +244,12 @@ struct RAVEN_ROOM_TRIGGER_INFO {
             uint16_t enemy_id;
             uint16_t on_effect_id;
         } remove_enemy;
+        struct {
+            const struct RAVEN_SPRITE_ANIMATION *anim;
+            uint16_t on_effect_id;
+            uint16_t set_effect_id;
+            uint16_t set_flag_id;
+        } play_animation;
         struct {
             const struct RAVEN_SFX *sfx;
             uint16_t sfx_id;

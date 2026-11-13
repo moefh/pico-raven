@@ -102,6 +102,8 @@ struct GAME_EFFECT {
     int32_t x;
     int32_t y;
     uint8_t direction;
+    uint16_t set_effect_id;
+    uint16_t set_flag_id;
     struct GAME_ANIMATION anim;
 };
 
