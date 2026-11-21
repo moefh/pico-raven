@@ -75,6 +75,7 @@ void player_init(void)
     pl->weapon_index = 0xff;
     pl->shoot_now = 0;
     pl->shadow_enabled = 0;
+    pl->darkness_enabled = 0;
     pl->last_shot_frame = 0;
 
     pl->char_anim.frame = 0;

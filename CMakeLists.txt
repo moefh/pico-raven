@@ -23,6 +23,8 @@ add_executable(${PROJECT_NAME}
     src/enemy.c
     src/bullet.c
     src/effect.c
+    src/darkness.c
+    src/perf.c
     src/draw_room.c
     src/sprite_shadow.c
     src/rooms/default.c

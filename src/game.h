@@ -8,6 +8,7 @@
 #include "enemy.h"
 #include "bullet.h"
 #include "effect.h"
+#include "darkness.h"
 
 struct JOYSTICK;
 
@@ -15,6 +16,7 @@ struct JOYSTICK;
 #define GAME_STATE_MAX_BULLETS      32
 #define GAME_STATE_MAX_ENEMIES      32
 #define GAME_STATE_MAX_ROOM_PICKUPS 32
+
 #define SCREEN_HEADER_HEIGHT 32
 
 #define DX_ACCEL          ((int32_t) 0x0e0)
@@ -64,6 +66,7 @@ struct GAME_PLAYER {
     uint8_t weapon_index;
     uint8_t shoot_now;
     uint8_t shadow_enabled;
+    uint8_t darkness_enabled;
     uint32_t last_shot_frame;
     struct GAME_ANIMATION char_anim;
     struct GAME_ANIMATION weapon_anim;
@@ -197,6 +200,7 @@ struct GAME_RUN_STATE {
 
     uint32_t enemy_collision_bits[GAME_STATE_MAX_ENEMIES];
     struct GAME_PROMPT prompt;
+    struct DARKNESS darkness[3];
 
     struct GAME_PLAYER player;
     struct GAME_PLAYER_CONTROL player_control;

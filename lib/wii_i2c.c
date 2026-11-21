@@ -50,16 +50,16 @@ int wii_i2c_init(i2c_inst_t *i2c, uint32_t sda_pin, uint32_t scl_pin)
 int wii_i2c_read_ident(i2c_inst_t *i2c, uint32_t *ident)
 {
     *ident = WII_I2C_IDENT_NONE;
-  
+
     int ret = i2c_write_timeout_us(i2c, WII_I2C_ADDR, data_req_ident, sizeof(data_req_ident), false, 2000);
     CHECK(ret, sizeof(data_req_ident), "req_ident");
 
     sleep_ms(1);
-  
+
     uint8_t data[6];
     ret = i2c_read_timeout_us(i2c, WII_I2C_ADDR, data, sizeof(data), false, 2000);
     CHECK(ret, sizeof(data), "read_ident");
-  
+
     *ident = (((uint32_t)data[5] <<  0) |
               ((uint32_t)data[4] <<  8) |
               ((uint32_t)data[3] << 16) |
@@ -105,17 +105,17 @@ void wii_i2c_decode_classic(const uint8_t *data, struct wii_i2c_classic_state *s
         memset(state, 0, sizeof(*state));
         return;
     }
-  
+
     state->lx = (data[0] & 0x3f) - (1<<5);
     state->ly = (data[1] & 0x3f) - (1<<5);
     state->rx = (((data[0] & 0xc0) >> 3) | ((data[1] & 0xc0) >> 5) | (data[2] >> 7)) - (1<<4);
     state->ry = (data[2] & 0x1f) - (1<<4);
-  
+
     state->a_lt = ((data[2] & 0x60) >> 2) | ((data[3] & 0xe0) >> 5);
     state->a_rt = data[3] & 0x1f;
     state->d_lt = (data[5] & 0x80) ? 0 : 1;
     state->d_rt = (data[5] & 0x04) ? 0 : 1;
-  
+
     state->left  = (data[5] & 0x02) ? 0 : 1;
     state->right = (data[4] & 0x80) ? 0 : 1;
     state->up    = (data[5] & 0x01) ? 0 : 1;

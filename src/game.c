@@ -39,6 +39,10 @@ void game_state_init(void)
 {
     memset(&game_state, 0, sizeof(struct GAME_RUN_STATE));
 
+    darkness_load_circle(&game_state.darkness[0], 40);
+    darkness_load_circle(&game_state.darkness[1], 36);
+    darkness_load_circle(&game_state.darkness[2], 32);
+
     msg_set_master_volume(0x30);
     game_state.mod.index = RAVEN_MOD_ID_BWV_106;
     game_state.mod.volume = 0;
@@ -254,33 +258,34 @@ static void save_game(void)
 
 static void process_joy_input(struct JOYSTICK *joy)
 {
-    if (JOY_BTN_HELD(joy, JOY_BTN_L1)) {
-        if (JOY_BTN_HELD(joy, JOY_BTN_L2)) {
+    if (JOY_BTN_HELD(joy, JOY_BTN_L2) && JOY_BTN_HELD(joy, JOY_BTN_R2)) {
+        if (JOY_BTN_HELD(joy, JOY_BTN_L1)) {
             game_state.mod.volume = (game_state.mod.volume > 1) ? game_state.mod.volume - 1 : 0;
             msg_mod_set_volume(game_state.mod.volume>>4);
         }
-        if (JOY_BTN_HELD(joy, JOY_BTN_R2)) {
+        if (JOY_BTN_HELD(joy, JOY_BTN_R1)) {
             game_state.mod.volume = (game_state.mod.volume < 0x100) ? game_state.mod.volume + 1 : 0x100;
             msg_mod_set_volume(game_state.mod.volume>>4);
         }
-        if (JOY_BTN_PRESSED(joy, JOY_BTN_R1)) {
+        if (JOY_BTN_PRESSED(joy, JOY_BTN_UP)) {
             game_state.mod.index = (game_state.mod.index+1) % RAVEN_MOD_COUNT;
             msg_mod_play(&raven_mods[game_state.mod.index], game_state.mod.volume>>4, true);
         }
         if (JOY_BTN_PRESSED(joy, JOY_BTN_Y)) {
             msg_sfx_play_once(0, &raven_sfxs[0], 0x10, 0x3<<10);
         }
-        if (JOY_BTN_PRESSED(joy, JOY_BTN_B)) {
-            game_state.display.show_perf = (game_state.display.show_perf + 1) % 3;
+        if (JOY_BTN_PRESSED(joy, JOY_BTN_X)) {
+            game_state.display.show_perf = (game_state.display.show_perf + 1) % 4;
         }
-    }
+        if (JOY_BTN_PRESSED(joy, JOY_BTN_A)) {
+            game_state.player.darkness_enabled = ! game_state.player.darkness_enabled;
+        }
 
-    if (JOY_BTN_PRESSED(joy, JOY_BTN_START)) {
-        if (JOY_BTN_HELD(joy, JOY_BTN_SELECT)) {
+        if (JOY_BTN_PRESSED(joy, JOY_BTN_START) && JOY_BTN_HELD(joy, JOY_BTN_SELECT)) {
             save_game();
-        } else {
-            load_game();
         }
+    } else if (JOY_BTN_PRESSED(joy, JOY_BTN_START)) {
+        load_game();
     }
 
     player_control_update(joy);

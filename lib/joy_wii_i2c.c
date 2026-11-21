@@ -38,6 +38,9 @@ static void read_state(struct JOYSTICK *joy)
         return;
     }
 
+    //#define D(n) (((uint64_t)data[n])<<(n*8))
+    //joy_cur = (D(0)|D(1)|D(2)|D(3)|D(4)|D(5));
+
     if (state[0] == 0 && state[1] == 0 && state[2] == 0 &&
         state[3] == 0 && state[4] == 0 && state[5] == 0) {
         return;
