@@ -43,17 +43,18 @@ void player_update_sprite_info(void)
     }
 }
 
-void player_set_sprite_anim(int animation_id)
+void player_set_sprite_anim(int animation_index)
 {
-    const struct RAVEN_SPRITE_ANIMATION *anim = &raven_sprite_animations[animation_id];
-    game_state.player.char_anim.sprite = anim->sprite;
+    const struct RAVEN_SPRITE_ANIMATION *anim = &raven_sprite_animations[animation_index];
+    game_state.player.char_anim.sprite = &raven_sprites[anim->sprite_index];
     game_state.player.char_anim.anim = anim;
 }
 
-static void set_weapon_sprite_anim(const struct RAVEN_SPRITE_ANIMATION *anim)
+static void set_weapon_sprite_anim(int animation_index)
 {
+    const struct RAVEN_SPRITE_ANIMATION *anim = &raven_sprite_animations[animation_index];
     if (game_state.player.weapon_anim.anim != anim) {
-        game_state.player.weapon_anim.sprite = anim->sprite;
+        game_state.player.weapon_anim.sprite = &raven_sprites[anim->sprite_index];
         game_state.player.weapon_anim.anim = anim;
         game_state.player.weapon_anim.frame = 0;
     }
@@ -62,8 +63,8 @@ static void set_weapon_sprite_anim(const struct RAVEN_SPRITE_ANIMATION *anim)
 void player_init(void)
 {
     struct GAME_PLAYER *pl = &game_state.player;
-    pl->char_anim.anim = pl->player_char->suits[pl->suit_index].animation;
-    pl->char_anim.sprite = pl->char_anim.anim->sprite;
+    pl->char_anim.anim = &raven_sprite_animations[pl->player_char->suits[pl->suit_index].animation_index];
+    pl->char_anim.sprite = &raven_sprites[pl->char_anim.anim->sprite_index];
 
     pl->x = 0;
     pl->y = 0;
@@ -156,7 +157,7 @@ void player_control_update(struct JOYSTICK *joy)
         const struct RAVEN_PLAYER_CHAR_WEAPON *weapon = &pl->player_char->weapons[weapon_index];
         if (pl->weapon_index != weapon_index) {
             pl->weapon_index = weapon_index;
-            set_weapon_sprite_anim(weapon->shoot_anim);
+            set_weapon_sprite_anim(weapon->shoot_anim_index);
             pl->shoot_wait_frames = weapon->bullet_initial_delay;
         }
         pl->weapon_frames_left = weapon->shoot_anim_len;

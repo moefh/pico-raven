@@ -156,8 +156,8 @@ static void load_room_tiles(const struct RAVEN_ROOM *room)
     game_state.room_tiles_w = 0;
     game_state.room_tiles_h = 0;
     for (int i = 0; i < room->num_maps; i++) {
-        int w = room->maps[i].x + room->maps[i].map->w;
-        int h = room->maps[i].y + room->maps[i].map->h;
+        int w = room->maps[i].x + raven_maps[room->maps[i].map_index].w;
+        int h = room->maps[i].y + raven_maps[room->maps[i].map_index].h;
         if (game_state.room_tiles_w < w) game_state.room_tiles_w = w;
         if (game_state.room_tiles_h < h) game_state.room_tiles_h = h;
         if (game_state.room_w < w*TILE_SIZE) game_state.room_w = w*TILE_SIZE;
@@ -174,17 +174,18 @@ static void load_room_tiles(const struct RAVEN_ROOM *room)
     // copy (bg, fg, fx) from all maps
     for (int i = 0; i < room->num_maps; i++) {
         const struct RAVEN_ROOM_MAP_INFO *room_map = &room->maps[i];
+        const struct RAVEN_MAP *map = &raven_maps[room_map->map_index];
 
-        int map_w = room_map->map->w;
-        int map_h = room_map->map->h;
+        int map_w = map->w;
+        int map_h = map->h;
         int src_line = 0;
         int dst_line = game_state.room_tiles_w*room_map->y + room_map->x;
-        const uint8_t *map_tiles = room_map->map->tiles;
+        const uint8_t *map_tiles = map->tiles;
         for (int y = 0; y < map_h; y++) {
             memcpy(game_state.fg_tiles + dst_line, map_tiles + 0*map_w*map_h + src_line, map_w);
             memcpy(game_state.bg_tiles + dst_line, map_tiles + 1*map_w*map_h + src_line, map_w);
             memcpy(game_state.fx_tiles + dst_line, map_tiles + 2*map_w*map_h + src_line, map_w);
-            if (room_map->map->has_bb_layer) {
+            if (map->has_bb_layer) {
                 memcpy(game_state.bb_tiles + dst_line, map_tiles + 3*map_w*map_h + src_line, map_w);
                 game_state.has_bb = true;
             }
@@ -304,8 +305,8 @@ static void check_room_triggers(struct JOYSTICK *joy)
         case RAVEN_ROOM_TRIGGER_TYPE_GET_PICKUP:
             if (game_state_is_pickup_trigger_enabled(tr->trigger_id)) {
                 game_state_disable_pickup_trigger(tr->trigger_id, tr->get_pickup.respawn_delay);
-                if (tr->get_pickup.sfx != NULL) {
-                    msg_sfx_play_once(0, tr->get_pickup.sfx, 0x10, 1<<10);
+                if (tr->get_pickup.sfx_index != 0xffff) {
+                    msg_sfx_play_once(0, &raven_sfxs[tr->get_pickup.sfx_index], 0x10, 1<<10);
                 }
             }
             break;
@@ -315,7 +316,8 @@ static void check_room_triggers(struct JOYSTICK *joy)
                 tr->get_collectable.get_collectable_id != 0xffff &&
                 ! game_state_has_collectable(tr->get_collectable.get_collectable_id)) {
                 if (tr->get_collectable.interact_prompt_id != 0xffff) {
-                    const struct VGA_IMAGE *sprite =  raven_table_collectables[tr->get_collectable.get_collectable_id].sprite;
+                    uint16_t sprite_index = raven_table_collectables[tr->get_collectable.get_collectable_id].sprite_index;
+                    const struct VGA_IMAGE *sprite = &raven_sprites[sprite_index];
                     game_state.prompt.x = tr->x + sprite->width / 2;
                     game_state.prompt.y = tr->y;
                     game_state.prompt.text = raven_table_interact_prompts[tr->get_collectable.interact_prompt_id];
@@ -396,7 +398,7 @@ static void update_game_state(struct JOYSTICK *joy)
         game_state.room_transition.frame = 0;
         game_state.room_transition.src_room_id = game_state.room_id;
         game_state.room_transition.src_door_trigger_id = door->trigger_id;
-        game_state.room_transition.dst_room_id = (uint16_t) (door->door.dest_room - raven_rooms);
+        game_state.room_transition.dst_room_id = door->door.dest_room_index;
         game_state.room_transition.dst_door_trigger_id = door->door.dest_trigger_id;
         game_state.room_transition.player_x = game_state.player.x - door->x;
         game_state.room_transition.player_y = game_state.player.y - door->y;
@@ -437,7 +439,7 @@ static const struct RAVEN_MAP_TILE_CHANGE *get_map_tile_change(int map_index, in
 {
     const struct RAVEN_ROOM *room = &raven_rooms[game_state.room_id];
     if (map_index >= room->num_maps) return NULL;
-    const struct RAVEN_MAP *map = room->maps[map_index].map;
+    const struct RAVEN_MAP *map = &raven_maps[room->maps[map_index].map_index];
     if (tile_change_index >= map->num_tile_changes) return NULL;
     return &map->tile_changes[tile_change_index];
 }
@@ -515,17 +517,18 @@ void game_state_activate_effect(uint32_t effect_id)
 
         case RAVEN_ROOM_TRIGGER_TYPE_PLAY_ANIMATION:
             if (tr->play_animation.on_effect_id == effect_id) {
-                effect_spawn_animation(tr->x, tr->y, tr->play_animation.set_effect_id, tr->play_animation.set_flag_id,
-                                       tr->play_animation.anim);
+                const struct RAVEN_SPRITE_ANIMATION *anim = &raven_sprite_animations[tr->play_animation.anim_index];
+                effect_spawn_animation(tr->x, tr->y, tr->play_animation.set_effect_id, tr->play_animation.set_flag_id, anim);
             }
             break;
 
         case RAVEN_ROOM_TRIGGER_TYPE_PLAY_SFX:
             if (tr->play_sfx.on_effect_id == effect_id) {
+                const struct RAVEN_SFX *sfx = &raven_sfxs[tr->play_sfx.sfx_index];
                 if (tr->play_sfx.loop) {
-                    msg_sfx_play_loop(tr->play_sfx.sfx_id, tr->play_sfx.sfx, tr->play_sfx.volume, tr->play_sfx.pitch_shift);
+                    msg_sfx_play_loop(tr->play_sfx.sfx_id, sfx, tr->play_sfx.volume, tr->play_sfx.pitch_shift);
                 } else {
-                    msg_sfx_play_once(tr->play_sfx.sfx_id, tr->play_sfx.sfx, tr->play_sfx.volume, tr->play_sfx.pitch_shift);
+                    msg_sfx_play_once(tr->play_sfx.sfx_id, sfx, tr->play_sfx.volume, tr->play_sfx.pitch_shift);
                 }
             }
             break;

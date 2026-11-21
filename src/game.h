@@ -226,6 +226,21 @@ extern struct GAME_RUN_STATE game_state;
 #define RUN_PERF(name)           RUN_PERF_AT(name, time_us_32())
 #define RUN_PERF_AT(name, time)  (game_state.perf.name = (time) - game_state.perf.frame_start_us)
 
+static inline const struct RAVEN_TILE_ANIMATION *get_tile_animation(int index) {
+    if (index == 0xffff) { return NULL; }
+    return &raven_tile_animations[index];
+}
+
+static inline const struct RAVEN_SPRITE_ANIMATION *get_sprite_animation(int index) {
+    if (index == 0xffff) { return NULL; }
+    return &raven_sprite_animations[index];
+}
+
+static inline const struct RAVEN_SFX *get_sfx(int index) {
+    if (index == 0xffff) { return NULL; }
+    return &raven_sfxs[index];
+}
+
 static inline int game_state_is_pickup_trigger_enabled(uint16_t trigger_id) {
     for (int i = 0; i < game_state.num_pickup_respawns; i++) {
         struct GAME_PICKUP_RESPAWN *respawn = &game_state.pickup_respawn[i];

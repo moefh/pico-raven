@@ -201,18 +201,18 @@ static void draw_room_items(const struct RAVEN_ROOM *room)
             if (trg->get_upgrade.get_upgrade_id != 0xffff &&
                 (trg->get_upgrade.req_flag_id == 0xffff || game_state_has_flag(trg->get_upgrade.req_flag_id)) &&
                 ! game_state_has_upgrade(trg->get_upgrade.get_upgrade_id)) {
-                sprite = raven_table_upgrades[trg->get_upgrade.get_upgrade_id].sprite;
+                sprite = &raven_sprites[raven_table_upgrades[trg->get_upgrade.get_upgrade_id].sprite_index];
             }
             break;
         case RAVEN_ROOM_TRIGGER_TYPE_GET_COLLECTABLE:
             if (trg->get_collectable.get_collectable_id != 0xffff
                 && ! game_state_has_collectable(trg->get_collectable.get_collectable_id)) {
-                sprite = raven_table_collectables[trg->get_collectable.get_collectable_id].sprite;
+                sprite = &raven_sprites[raven_table_collectables[trg->get_collectable.get_collectable_id].sprite_index];
             }
             break;
         case RAVEN_ROOM_TRIGGER_TYPE_GET_PICKUP:
             if (trg->get_pickup.get_pickup_id != 0xffff && game_state_is_pickup_trigger_enabled(trg->trigger_id)) {
-                sprite = raven_table_pickups[trg->get_pickup.get_pickup_id].sprite;
+                sprite = &raven_sprites[raven_table_pickups[trg->get_pickup.get_pickup_id].sprite_index];
             }
             break;
         }
@@ -229,7 +229,7 @@ static void draw_texts(void)
         const struct VGA_IMAGE *sprite = NULL;
         int sprite_frame = 0;
         if (text[0] == '!') {
-            sprite = game_state.player.player_char->gamepad_sprite;
+            sprite = &raven_sprites[game_state.player.player_char->gamepad_sprite_index];
             switch (text[1]) {
             case 'B': sprite_frame = 0; text += 2; break;
             case 'A': sprite_frame = 1; text += 2; break;
@@ -240,32 +240,40 @@ static void draw_texts(void)
             if (*text == ' ') text++;
         }
 
-        const struct VGA_FONT *font = game_state.player.player_char->font;
-        int x = game_state.prompt.x - strlen(text) * font->w / 2 - game_state.screen_x;
-        int y = game_state.prompt.y - 6 - font->h - game_state.screen_y + vga_image_screen.y_min;
+        int font_height;
+        const void *old_font;
+        bool old_is_prop;
+        const struct RAVEN_FONT_REF *font = &game_state.player.player_char->font;
+        if (font->type == RAVEN_FONT_TYPE_FIXED) {
+            const struct VGA_FONT *ffont = &raven_fonts[font->fixed_index];
+            old_font = font_set_font(ffont);
+            old_is_prop = font_set_is_prop(false);
+            font_height = ffont->h;
+        } else {
+            const struct VGA_PROP_FONT *pfont = &raven_prop_fonts[font->prop_index];
+            old_font = font_set_prop_font(pfont);
+            old_is_prop = font_set_is_prop(true);
+            font_height = pfont->h;
+        }
 
+        int x = game_state.prompt.x - font_measure(text) / 2 - game_state.screen_x;
+        int y = game_state.prompt.y - 6 - font_height - game_state.screen_y + vga_image_screen.y_min;
         if (sprite != NULL) {
             int sx = x - sprite->width/2 - 3;
-            int sy = y - sprite->height/2 + font->h/2;
+            int sy = y - sprite->height/2 + font_height/2;
             vga_image_draw_frame(sprite, sprite_frame, sx, sy, 1);
             x += sprite->width / 2 + 3;
         }
 
-        const struct VGA_FONT *old_font = font_set_font(font);
-        uint8_t old_color = font_set_color(0x00);
-        for (int dy = -1; dy <= 1; dy++) {
-            for (int dx = -1; dx <= 1; dx++) {
-                if (dx != 0 && dy != 0) {
-                    font_move(x+dx, y+dy);
-                    font_print(text);
-                }
-            }
-        }
-        font_set_color(0xff);
+        bool old_border = font_set_border(true, 0x00);
+        bool old_color = font_set_color(0xff);
         font_move(x, y);
         font_print(text);
+
+        font_set_border(old_border, 0x00);
         font_set_color(old_color);
         font_set_font(old_font);
+        font_set_is_prop(old_is_prop);
     }
 }
 

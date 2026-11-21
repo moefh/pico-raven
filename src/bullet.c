@@ -31,8 +31,8 @@ void bullet_spawn(int weapon_index)
     bullet->dx = weapon->bullet_dx * ((pl->direction != 0) ? -1 : 1);
     bullet->dy = weapon->bullet_dy;
     bullet->direction = pl->direction;
-    bullet->anim.anim = weapon->bullet_anim;
-    bullet->anim.sprite = weapon->bullet_anim->sprite;
+    bullet->anim.anim = &raven_sprite_animations[weapon->bullet_anim_index];
+    bullet->anim.sprite = &raven_sprites[bullet->anim.anim->sprite_index];
     bullet->anim.loop = 0;
     bullet->anim.frame = 0;
     game_update_animation(&bullet->anim, bullet->x>>8, bullet->y>>8, bullet->direction);

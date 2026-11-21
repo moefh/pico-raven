@@ -26,7 +26,7 @@ void effect_spawn_animation(int x, int y, uint16_t set_effect_id, uint16_t set_f
     effect->set_effect_id = set_effect_id;
     effect->set_flag_id = set_flag_id;
     effect->anim.anim = anim;
-    effect->anim.sprite = anim->sprite;
+    effect->anim.sprite = &raven_sprites[effect->anim.anim->sprite_index];
     effect->anim.loop = 0;
     effect->anim.frame = 0;
     game_update_animation(&effect->anim, effect->x, effect->y, effect->direction);
@@ -37,14 +37,16 @@ void effect_spawn_for_weapon(int x, int y, int direction, int weapon_index)
     struct GAME_EFFECT *effect = effect_spawn();
     if (effect == NULL) { return; }
     const struct RAVEN_PLAYER_CHAR_WEAPON *weapon = &game_state.player.player_char->weapons[weapon_index];
+    const struct RAVEN_SPRITE_ANIMATION *hit_anim = get_sprite_animation(weapon->bullet_hit_anim_index);
+    if (hit_anim == NULL) return;
 
-    effect->x = x - weapon->bullet_hit_anim->collision.w / 2;
-    effect->y = y - weapon->bullet_hit_anim->collision.h / 2;
+    effect->x = x - hit_anim->collision.w / 2;
+    effect->y = y - hit_anim->collision.h / 2;
     effect->direction = direction;
     effect->set_effect_id = 0xffff;
     effect->set_flag_id = 0xffff;
-    effect->anim.anim = weapon->bullet_hit_anim;
-    effect->anim.sprite = weapon->bullet_hit_anim->sprite;
+    effect->anim.anim = hit_anim;
+    effect->anim.sprite = &raven_sprites[hit_anim->sprite_index];
     effect->anim.loop = 0;
     effect->anim.frame = 0;
     game_update_animation(&effect->anim, effect->x, effect->y, effect->direction);

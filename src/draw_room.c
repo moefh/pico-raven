@@ -41,12 +41,13 @@ struct DRAW_ROOM_INFO *draw_room_init_frame(struct MEM_ARENA *mem)
     dri->num_maps = room->num_maps;
     for (int i = 0; i < room->num_maps; i++) {
         const struct RAVEN_ROOM_MAP_INFO *map_info = &room->maps[i];
+        const struct RAVEN_MAP *map = &raven_maps[map_info->map_index];
         struct DRAW_ROOM_MAP_INFO *mi = &dri->maps[i];
         mi->tile_x_first = map_info->x;
         mi->tile_y_first = map_info->y;
-        mi->tile_x_last = map_info->x + map_info->map->w - 1;
-        mi->tile_y_last = map_info->y + map_info->map->h - 1;
-        mi->map = map_info->map;
+        mi->tile_x_last = map_info->x + map->w - 1;
+        mi->tile_y_last = map_info->y + map->h - 1;
+        mi->map = map;
     }
 
     int para_x = game_state.screen_x * (room->parallax.width*TILE_SIZE - screen_width) / (game_state.room_w - screen_width);
@@ -89,11 +90,11 @@ static void draw_map_layer(struct DRAW_ROOM_INFO *dri, struct DRAW_ROOM_MAP_INFO
     int tile_y_last = dri->tile_y_last;
 
     int tiles_stride = game_state.room_tiles_w;
-    const struct RAVEN_IMAGE *tileset = mi->map->tileset;
+    const struct RAVEN_IMAGE *tileset = &raven_tilesets[mi->map->tileset_index];
     const uint8_t *tiles = &layer_tiles[tile_y_first * tiles_stride];
     const uint8_t *anim_tiles = &game_state.fx_tiles[tile_y_first * tiles_stride];
-    const struct RAVEN_TILE_ANIMATION *anim = mi->map->animation;
-    const struct RAVEN_IMAGE *anim_tileset = (anim == NULL) ? NULL : anim->anim_tileset;
+    const struct RAVEN_TILE_ANIMATION *anim = get_tile_animation(mi->map->tile_animation_index);
+    const struct RAVEN_IMAGE *anim_tileset = (anim == NULL) ? NULL : &raven_tilesets[anim->anim_tileset_index];
 
     int y_pos = dri->screen_y;
     for (int tile_y = tile_y_first; tile_y <= tile_y_last; tile_y++) {
@@ -146,7 +147,7 @@ static void draw_parallax_layer(struct DRAW_ROOM_INFO *dri)
     int tile_y_last = dri->parallax.tile_y_last;
 
     int tiles_stride = dri->parallax.room_parallax->width;
-    const struct RAVEN_IMAGE *tileset = dri->parallax.room_parallax->tileset;
+    const struct RAVEN_IMAGE *tileset = &raven_tilesets[dri->parallax.room_parallax->tileset_index];
     const uint8_t *tiles = &dri->parallax.room_parallax->tiles[tile_y_first * tiles_stride];
 
     int y_pos = dri->parallax.screen_y;
@@ -166,7 +167,7 @@ static void draw_parallax_layer(struct DRAW_ROOM_INFO *dri)
 
 void draw_room_bg(struct DRAW_ROOM_INFO *dri)
 {
-    bool has_parallax = dri->parallax.room_parallax->tileset != NULL;
+    bool has_parallax = dri->parallax.room_parallax->tileset_index != 0xffff;
     if (has_parallax) {
         draw_parallax_layer(dri);
     }

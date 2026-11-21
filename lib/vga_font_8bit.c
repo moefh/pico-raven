@@ -9,10 +9,13 @@
 
 static char print_buf[32];
 const struct VGA_FONT *vga_font;
-uint32_t vga_font_x, vga_font_y;
+const struct VGA_PROP_FONT *vga_pfont;
+int32_t vga_font_x, vga_font_y;
 enum FONT_ALIGNMENT vga_font_alignment;
+uint8_t vga_font_is_prop;
 uint8_t vga_font_color;
-uint8_t vga_font_border[2];
+uint8_t vga_font_border_enable;
+uint8_t vga_font_border_color;
 
 #if VGA_FONT_USE_STDARG
 #include <stdarg.h>
@@ -27,37 +30,6 @@ void font_printf(const char *fmt, ...)
     font_print(print_buf);
 }
 #endif
-
-const struct VGA_FONT *font_set_font(const struct VGA_FONT *new_font)
-{
-    const struct VGA_FONT *old_font = vga_font;
-    vga_font = new_font;
-    return old_font;
-}
-
-uint8_t font_set_color(uint8_t color)
-{
-    uint8_t old_color = vga_font_color;
-    vga_font_color = color;
-    return old_color;
-}
-
-void font_set_border(bool enable, uint8_t color)
-{
-    vga_font_border[0] = enable;
-    vga_font_border[1] = color;
-}
-
-void font_move(uint32_t x, uint32_t y)
-{
-    vga_font_x = x;
-    vga_font_y = y;
-}
-
-void font_align(enum FONT_ALIGNMENT alignment)
-{
-    vga_font_alignment = alignment;
-}
 
 void font_print_int(int num)
 {
@@ -77,20 +49,25 @@ void font_print_float(float num)
     font_print(print_buf);
 }
 
-static int render_text(const char *text, int x, int y, unsigned int color)
+static int render_text_fixed_font(const char *text, int x, int y, unsigned int color)
 {
     while (*text != '\0') {
-        char ch = *text++;
+        int ch = *text++;
         if (ch >= FIRST_CHAR && ch < FIRST_CHAR+NUM_CHARS) {
             ch -= FIRST_CHAR;
+            const uint8_t *ch_data = &vga_font->data[vga_font->h*ch];
             for (int i = 0; i < vga_font->h; i++) {
-                uint8_t char_line = vga_font->data[vga_font->h*ch + i];
+                uint8_t ch_data_byte = *ch_data++;
                 uint8_t char_bit = 1;
                 for (int j = 0; j < vga_font->w; j++) {
-                    if ((char_line & char_bit) != 0 && y+i < vga_screen.height && x+j < vga_screen.width) {
+                    if ((ch_data_byte & char_bit) != 0 && y+i < vga_screen.height && x+j < vga_screen.width) {
                         vga_screen.lines8[y+i][x+j] = color;
                     }
                     char_bit <<= 1;
+                    if (j % 8 == 7) {
+                        char_bit = 1;
+                        ch_data_byte = *ch_data++;
+                    }
                 }
             }
         }
@@ -100,25 +77,86 @@ static int render_text(const char *text, int x, int y, unsigned int color)
     return x;
 }
 
+static int render_text_prop_font(const char *text, int x, int y, unsigned int color)
+{
+    while (*text != '\0') {
+        int ch = *text++;
+        if (ch >= FIRST_CHAR && ch < FIRST_CHAR+NUM_CHARS) {
+            ch -= FIRST_CHAR;
+            const uint8_t *ch_data = &vga_pfont->data[vga_pfont->char_offset[ch]];
+            int ch_width = vga_pfont->char_width[ch];
+            for (int i = 0; i < vga_pfont->h; i++) {
+                uint8_t ch_data_byte = *ch_data++;
+                uint8_t char_bit = 1;
+                for (int j = 0; j < ch_width; j++) {
+                    if ((ch_data_byte & char_bit) != 0 && y+i < vga_screen.height && x+j < vga_screen.width) {
+                        vga_screen.lines8[y+i][x+j] = color;
+                    }
+                    char_bit <<= 1;
+                    if (j % 8 == 7) {
+                        char_bit = 1;
+                        ch_data_byte = *ch_data++;
+                    }
+                }
+            }
+            x += ch_width;
+        }
+        x++;
+    }
+
+    return x;
+}
+
+int32_t font_measure(const char *text)
+{
+    if (! vga_font_is_prop) {
+        return vga_font->w * strlen(text);
+    }
+
+    if (*text == '\0') return 0;
+
+    int32_t width = 0;
+    while (*text != '\0') {
+        int ch = *text++;
+        if (ch >= FIRST_CHAR && ch < FIRST_CHAR+NUM_CHARS) {
+            ch -= FIRST_CHAR;
+            width += vga_pfont->char_width[ch];
+        }
+        width++;  // space between characters
+    }
+    width--;      // don't include space after last char
+    return width;
+}
+
 void font_print(const char *text)
 {
     if (text == NULL) return;
 
-    switch (vga_font_alignment) {
-    case FONT_ALIGN_LEFT:   /* nothing to do */ break;
-    case FONT_ALIGN_CENTER: vga_font_x -= strlen(text) * vga_font->w / 2; break;
-    case FONT_ALIGN_RIGHT:  vga_font_x -= strlen(text) * vga_font->w; break;
+    int font_width = font_measure(text);
+    if (vga_font_alignment == FONT_ALIGN_CENTER) {
+        vga_font_x -= font_width / 2;
+    } else if (vga_font_alignment == FONT_ALIGN_RIGHT) {
+        vga_font_x -= font_width;
     }
 
-    if (vga_font_border[0]) {
+    if (vga_font_border_enable) {
         for (int i = -1; i <= 1; i++) {
             for (int j = -1; j <= 1; j++) {
                 if (i == 0 && j == 0) continue;
-                render_text(text, vga_font_x+i, vga_font_y+j, vga_font_border[1]);
+                if (vga_font_is_prop) {
+                    render_text_prop_font(text, vga_font_x+i, vga_font_y+j, vga_font_border_color);
+                } else {
+                    render_text_fixed_font(text, vga_font_x+i, vga_font_y+j, vga_font_border_color);
+                }
             }
         }
     }
-    int new_x = render_text(text, vga_font_x, vga_font_y, vga_font_color);
+    int new_x;
+    if (vga_font_is_prop) {
+        new_x = render_text_prop_font(text, vga_font_x, vga_font_y, vga_font_color);
+    } else {
+        new_x = render_text_fixed_font(text, vga_font_x, vga_font_y, vga_font_color);
+    }
     if (vga_font_alignment != FONT_ALIGN_RIGHT) {
         vga_font_x = new_x;
     }

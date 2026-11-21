@@ -381,11 +381,12 @@ static void update_floater(int enemy_index)
 
 void enemy_init(int enemy_index, const struct RAVEN_ROOM_TRIGGER_INFO *spawn)
 {
+    const struct RAVEN_ENEMY *raven_enemy = &raven_enemies[spawn->enemy_spawn.enemy_index];
     struct GAME_ENEMY *enemy = &game_state.enemies[enemy_index];
     enemy->id = spawn->enemy_spawn.enemy_id;
-    enemy->anim.anim = spawn->enemy_spawn.enemy->anim;
-    enemy->health = spawn->enemy_spawn.enemy->health;
-    enemy->anim.sprite = enemy->anim.anim->sprite;
+    enemy->anim.anim = &raven_sprite_animations[raven_enemy->anim_index];
+    enemy->health = raven_enemy->health;
+    enemy->anim.sprite = &raven_sprites[enemy->anim.anim->sprite_index];
     enemy->x = spawn->x;
     enemy->y = spawn->y;
     enemy->direction = spawn->enemy_spawn.direction;
@@ -394,7 +395,7 @@ void enemy_init(int enemy_index, const struct RAVEN_ROOM_TRIGGER_INFO *spawn)
     enemy->hit_frames_left = 0;
 
     struct GAME_ENEMY_CONTROL *control = &game_state.enemies_control[enemy_index];
-    control->enemy_type = spawn->enemy_spawn.enemy->type;
+    control->enemy_type = raven_enemy->type;
     switch (control->enemy_type) {
     case ENEMY_TYPE_WALKER: init_walker(enemy_index); break;
     case ENEMY_TYPE_CHILLER: init_chiller(enemy_index); break;
