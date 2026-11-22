@@ -8,6 +8,10 @@
 #include "lib/sound_i2s.h"
 #include "lib/audio_mixer.h"
 #include "lib/mod_play.h"
+#include "lib/joystick.h"
+#include "lib/joy_wii_i2c.h"
+
+static struct JOYSTICK joy;
 
 static void mod_event_callback(int chan, int event, void *data)
 {
@@ -102,6 +106,9 @@ static void process_message(union CORE_MSG *msg)
 
 void core1_main(void)
 {
+    // init joystick
+    joy_wii_i2c_init(&joy, JOY_I2C_NUM, JOY_SDA_PIN, JOY_SCL_PIN);
+
     // handshake with core0: notify we're ready and wait until core0 is ready:
     multicore_fifo_push_blocking(0);
     multicore_fifo_pop_blocking();
@@ -110,11 +117,21 @@ void core1_main(void)
     flash_safe_execute_core_init();
 
     while (true) {
+        // request joy update
+        joy.last = joy.cur;
+        joy_wii_i2c_request_state(&joy);
+        uint32_t joy_req_us = time_us_32();
+
         // it takes (SOUND_I2S_BUFFER_NUM_SAMPLES / SND_SAMPLE_FREQUENCY)
         // seconds to play one buffer full of samples; to be safe we sleep
         // for a third of that before checking if the next buffer is ready to
         // prepare
         sleep_ms(1000 * SOUND_I2S_BUFFER_NUM_SAMPLES / SND_SAMPLE_FREQUENCY / 3);
+
+        // ensure 200us have elapsed since joy update request
+        while (time_us_32() - joy_req_us < 200) sleep_us(10);
+        joy_wii_i2c_read_state(&joy);
+        msg_joy_state(joy.cur, joy.last);
 
         union CORE_MSG msg;
         while (core1_msg_try_recv(&msg)) {

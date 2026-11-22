@@ -9,11 +9,11 @@
 #include "draw_room.h"
 #include "sprite_shadow.h"
 #include "darkness.h"
+#include "gamepad.h"
 
 #include "lib/vga_8bit.h"
 #include "lib/vga_image_8bit.h"
 #include "lib/vga_font_8bit.h"
-#include "lib/joystick.h"
 #include "lib/mem.h"
 
 #include "game_data.h"
@@ -265,7 +265,7 @@ static void draw_header(void)
     font_printf("%2d", 3);
 }
 
-void screen_render(struct JOYSTICK *joy)
+void screen_render(void)
 {
     mem_clear(&draw_frame_arena);
     //vga_clear_screen(0);
@@ -278,7 +278,7 @@ void screen_render(struct JOYSTICK *joy)
 
     perf_update_history(&game_state.perf);
     if (game_state.display.show_perf) {
-        perf_draw_info(joy);
+        perf_draw_info();
     }
 
     RUN_PERF(render_us);

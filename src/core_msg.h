@@ -10,6 +10,7 @@
 // message types
 enum CORE_MSG_TYPE {
     CORE0_MSG_TYPE_MOD_EVENT,
+    CORE0_MSG_TYPE_JOY_STATE,
     CORE1_MSG_TYPE_AUDIO_INIT,
     CORE1_MSG_TYPE_SET_MASTER_VOLUME,
     CORE1_MSG_TYPE_SFX_PLAY,
@@ -28,6 +29,12 @@ struct CORE0_MSG_MOD_EVENT {
     struct CORE_MSG_HEADER msg_header;
     uint8_t chan;
     uint8_t event;
+};
+
+struct CORE0_MSG_JOY_STATE {
+    struct CORE_MSG_HEADER msg_header;
+    uint32_t cur;
+    uint32_t last;
 };
 
 struct CORE1_MSG_AUDIO_INIT {
@@ -84,6 +91,7 @@ struct CORE1_MSG_MOD_STOP {
 union CORE_MSG {
     struct CORE_MSG_HEADER msg_header;
     struct CORE0_MSG_MOD_EVENT mod_event;
+    struct CORE0_MSG_JOY_STATE joy_state;
     struct CORE1_MSG_AUDIO_INIT audio_init;
     struct CORE1_MSG_SET_MASTER_VOLUME set_master_volume;
     struct CORE1_MSG_SFX_PLAY sfx_play;
@@ -117,5 +125,6 @@ void msg_mod_set_volume(uint16_t volume);
 // === core1 -> core0:
 
 void msg_mod_event(uint8_t chan, uint8_t event);
+void msg_joy_state(uint32_t cur, uint32_t last);
 
 #endif /* CORE_MSG_H_FILE */

@@ -5,8 +5,6 @@
 
 #include "config.h"
 
-#include "lib/joystick.h"
-#include "lib/joy_wii_i2c.h"
 #include "lib/sysinfo.h"
 #include "lib/compilation_timestamp.h"
 
@@ -15,8 +13,6 @@
 #include "game.h"
 
 void core1_main(void);
-
-static struct JOYSTICK joy;
 
 static void led_init(void)
 {
@@ -50,7 +46,6 @@ int main(void)
     multicore_fifo_push_blocking(0);
 
     led_init();
-    joy_wii_i2c_init(&joy, JOY_I2C_NUM, JOY_SDA_PIN, JOY_SCL_PIN);
     msg_audio_init(SND_PIO_NUM, SND_PIN_BASE, SND_PIN_BASE+1, SND_SAMPLE_FREQUENCY);
 
     if (screen_init() < 0) {
@@ -59,5 +54,5 @@ int main(void)
 
     printf("pos-init free mem: %lu/%lu\n", sysinfo_heap_free(), sysinfo_heap_total());
 
-    game_main_loop(&joy);
+    game_main_loop();
 }

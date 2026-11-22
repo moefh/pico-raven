@@ -3,8 +3,8 @@
 
 #include "player.h"
 #include "collision.h"
+#include "gamepad.h"
 
-#include "lib/joystick.h"
 #include "lib/mem.h"
 
 static inline void set_state(struct GAME_PLAYER *pl, int state)
@@ -84,7 +84,7 @@ void player_init(void)
     player_update_sprite_info();
 }
 
-void player_update(struct JOYSTICK *joy)
+void player_update(void)
 {
     struct GAME_PLAYER *pl = &game_state.player;
     struct GAME_PLAYER_CONTROL *plc = &game_state.player_control;
@@ -101,7 +101,7 @@ void player_update(struct JOYSTICK *joy)
     int collision = collision_move(&rect, dx, dy);
     if (collision & COLLISION_FLAGS_DOWN) {
         plc->dy = 0;
-        if (JOY_BTN_HELD(joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
+        if (PAD_HELD(GAMEPAD_RIGHT|GAMEPAD_LEFT)) {
             set_state(pl, PLAYER_STATE_WALK);
         } else if (pl->state != PLAYER_STATE_CROUCH) {
             set_state(pl, PLAYER_STATE_STAND);
@@ -148,13 +148,13 @@ void player_control_init(void)
     plc->dy = 0;
 }
 
-void player_control_update(struct JOYSTICK *joy)
+void player_control_update(void)
 {
     struct GAME_PLAYER *pl = &game_state.player;
     struct GAME_PLAYER_CONTROL *plc = &game_state.player_control;
 
-    if (JOY_BTN_HELD(joy, JOY_BTN_A) || JOY_BTN_HELD(joy, JOY_BTN_Y)) {
-        int weapon_index = JOY_BTN_HELD(joy, JOY_BTN_A) ? 1 : 0;
+    if (PAD_HELD(GAMEPAD_A) || PAD_HELD(GAMEPAD_Y)) {
+        int weapon_index = PAD_HELD(GAMEPAD_A) ? 1 : 0;
         const struct RAVEN_PLAYER_CHAR_WEAPON *weapon = &pl->player_char->weapons[weapon_index];
         if (pl->weapon_index != weapon_index) {
             pl->weapon_index = weapon_index;
@@ -181,9 +181,9 @@ void player_control_update(struct JOYSTICK *joy)
 
     // walk
     if (pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK || pl->state == PLAYER_STATE_CROUCH) {
-        if (pl->state != PLAYER_STATE_WALK && JOY_BTN_HELD(joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
+        if (pl->state != PLAYER_STATE_WALK && PAD_HELD(GAMEPAD_RIGHT|GAMEPAD_LEFT)) {
             set_state(pl, PLAYER_STATE_WALK);
-        } else if (pl->state == PLAYER_STATE_WALK && ! JOY_BTN_HELD(joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
+        } else if (pl->state == PLAYER_STATE_WALK && ! PAD_HELD(GAMEPAD_RIGHT|GAMEPAD_LEFT)) {
             set_state(pl, PLAYER_STATE_STAND);
             //pl->char_anim.loop = RAVEN_SPRITE_ANIMATION_BUNNY_LOOP_STAND; // TODO: is this needed?
         }
@@ -209,37 +209,37 @@ void player_control_update(struct JOYSTICK *joy)
     }
 
     // change direction
-    if (JOY_BTN_HELD(joy, JOY_BTN_RIGHT|JOY_BTN_LEFT)) {
-        pl->direction = JOY_BTN_HELD(joy, JOY_BTN_RIGHT) ? RAVEN_DIR_RIGHT : RAVEN_DIR_LEFT;
+    if (PAD_HELD(GAMEPAD_RIGHT|GAMEPAD_LEFT)) {
+        pl->direction = PAD_HELD(GAMEPAD_RIGHT) ? RAVEN_DIR_RIGHT : RAVEN_DIR_LEFT;
     }
 
     // crouch
-    if (pl->state == PLAYER_STATE_STAND && JOY_BTN_HELD(joy, JOY_BTN_DOWN)) {
+    if (pl->state == PLAYER_STATE_STAND && PAD_HELD(GAMEPAD_DOWN)) {
         set_state(pl, PLAYER_STATE_CROUCH);
     }
-    if (pl->state == PLAYER_STATE_CROUCH && JOY_BTN_HELD(joy, JOY_BTN_UP|JOY_BTN_B)) {
+    if (pl->state == PLAYER_STATE_CROUCH && PAD_HELD(GAMEPAD_UP|GAMEPAD_B)) {
         set_state(pl, PLAYER_STATE_STAND);
     }
 
     // limit x speed
-    if (JOY_BTN_HELD(joy, JOY_BTN_RIGHT)) {
+    if (PAD_HELD(GAMEPAD_RIGHT)) {
         plc->dx += DX_ACCEL;
         if (plc->dx >= DX_MAX) plc->dx = DX_MAX;
     }
-    if (JOY_BTN_HELD(joy, JOY_BTN_LEFT)) {
+    if (PAD_HELD(GAMEPAD_LEFT)) {
         plc->dx -= DX_ACCEL;
         if (plc->dx <= -DX_MAX) plc->dx = -DX_MAX;
     }
 
     // jump
-    if ((pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK) && JOY_BTN_PRESSED(joy, JOY_BTN_B)) {
+    if ((pl->state == PLAYER_STATE_STAND || pl->state == PLAYER_STATE_WALK) && PAD_PRESSED(GAMEPAD_B)) {
         plc->dy = DY_JUMP_START;
         set_state(pl, PLAYER_STATE_JUMP);
     }
 
     // hold jump / start fall
     if (pl->state == PLAYER_STATE_JUMP) {
-        if (JOY_BTN_HELD(joy, JOY_BTN_B) && plc->dy < 0) {
+        if (PAD_HELD(GAMEPAD_B) && plc->dy < 0) {
             plc->dy += DY_JUMP_HOLD;
         } else {
             set_state(pl, PLAYER_STATE_FALL);

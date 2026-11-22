@@ -10,8 +10,6 @@
 #include "effect.h"
 #include "darkness.h"
 
-struct JOYSTICK;
-
 #define GAME_STATE_MAX_EFFECTS      32
 #define GAME_STATE_MAX_BULLETS      32
 #define GAME_STATE_MAX_ENEMIES      32
@@ -117,8 +115,6 @@ struct GAME_STATE_LED {
 
 struct GAME_STATE_PERF {
     uint32_t frame_start_us;
-    uint32_t joy_req_us;
-    uint32_t joy_read_us;
     uint32_t update_us;
     uint32_t room_fg_us;
     uint32_t player_us;
@@ -180,6 +176,8 @@ struct GAME_RUN_STATE {
 
     int fps_count;
     unsigned int frame_counter;
+    uint32_t joy_cur_state;
+    uint32_t joy_last_state;
 
     void (*update_room)(void);
 
@@ -345,6 +343,6 @@ void game_state_spawn_room_enemies(uint16_t req_flag_id);
 void game_update_animation(struct GAME_ANIMATION *anim, int x, int y, int direction);
 void game_state_activate_effect(uint32_t effect_id);
 const struct RAVEN_ROOM_TRIGGER_INFO *game_state_check_player_trigger(uint32_t trigger_type_flags);
-void game_main_loop(struct JOYSTICK *joy);
+void game_main_loop(void);
 
 #endif /* GAME_H_FILE */

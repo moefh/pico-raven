@@ -5,7 +5,6 @@
 #include "game.h"
 
 #include "lib/joy_wii_i2c.h"
-#include "lib/joystick.h"
 #include "lib/vga_8bit.h"
 #include "lib/vga_image_8bit.h"
 
@@ -21,6 +20,7 @@
 #include "sprite_shadow.h"
 #include "draw_room.h"
 #include "savegame.h"
+#include "gamepad.h"
 #include "rooms/default.h"
 
 struct GAME_RUN_STATE game_state;
@@ -256,42 +256,42 @@ static void save_game(void)
     game_state.display.msg_load_frames_left = 0;
 }
 
-static void process_joy_input(struct JOYSTICK *joy)
+static void process_gamepad_input(void)
 {
-    if (JOY_BTN_HELD(joy, JOY_BTN_L2) && JOY_BTN_HELD(joy, JOY_BTN_R2)) {
-        if (JOY_BTN_HELD(joy, JOY_BTN_L1)) {
+    if (PAD_HELD(GAMEPAD_L2) && PAD_HELD(GAMEPAD_R2)) {
+        if (PAD_HELD(GAMEPAD_L1)) {
             game_state.mod.volume = (game_state.mod.volume > 1) ? game_state.mod.volume - 1 : 0;
             msg_mod_set_volume(game_state.mod.volume>>4);
         }
-        if (JOY_BTN_HELD(joy, JOY_BTN_R1)) {
+        if (PAD_HELD(GAMEPAD_R1)) {
             game_state.mod.volume = (game_state.mod.volume < 0x100) ? game_state.mod.volume + 1 : 0x100;
             msg_mod_set_volume(game_state.mod.volume>>4);
         }
-        if (JOY_BTN_PRESSED(joy, JOY_BTN_UP)) {
+        if (PAD_PRESSED(GAMEPAD_UP)) {
             game_state.mod.index = (game_state.mod.index+1) % RAVEN_MOD_COUNT;
             msg_mod_play(&raven_mods[game_state.mod.index], game_state.mod.volume>>4, true);
         }
-        if (JOY_BTN_PRESSED(joy, JOY_BTN_Y)) {
+        if (PAD_PRESSED(GAMEPAD_Y)) {
             msg_sfx_play_once(0, &raven_sfxs[0], 0x10, 0x3<<10);
         }
-        if (JOY_BTN_PRESSED(joy, JOY_BTN_X)) {
+        if (PAD_PRESSED(GAMEPAD_X)) {
             game_state.display.show_perf = (game_state.display.show_perf + 1) % 4;
         }
-        if (JOY_BTN_PRESSED(joy, JOY_BTN_A)) {
+        if (PAD_PRESSED(GAMEPAD_A)) {
             game_state.player.darkness_enabled = ! game_state.player.darkness_enabled;
         }
 
-        if (JOY_BTN_PRESSED(joy, JOY_BTN_START) && JOY_BTN_HELD(joy, JOY_BTN_SELECT)) {
+        if (PAD_PRESSED(GAMEPAD_START) && PAD_HELD(GAMEPAD_SELECT)) {
             save_game();
         }
-    } else if (JOY_BTN_PRESSED(joy, JOY_BTN_START)) {
+    } else if (PAD_PRESSED(GAMEPAD_START)) {
         load_game();
     }
 
-    player_control_update(joy);
+    player_control_update();
 }
 
-static void check_room_triggers(struct JOYSTICK *joy)
+static void check_room_triggers(void)
 {
     uint32_t trigger_flags = ((1u<<RAVEN_ROOM_TRIGGER_TYPE_GET_UPGRADE) |
                               (1u<<RAVEN_ROOM_TRIGGER_TYPE_GET_PICKUP) |
@@ -327,7 +327,7 @@ static void check_room_triggers(struct JOYSTICK *joy)
                     game_state.prompt.y = tr->y;
                     game_state.prompt.text = raven_table_interact_prompts[tr->get_collectable.interact_prompt_id];
                 }
-                if (JOY_BTN_PRESSED(joy, JOY_BTN_X)) {
+                if (PAD_PRESSED(GAMEPAD_X)) {
                     game_state_set_collectable(tr->get_collectable.get_collectable_id);
                 }
             }
@@ -361,7 +361,7 @@ static void check_room_triggers(struct JOYSTICK *joy)
                         game_state.prompt.y = tr->y;
                         game_state.prompt.text = raven_table_interact_prompts[tr->wall_button.interact_prompt_id];
                     }
-                    if (JOY_BTN_PRESSED(joy, JOY_BTN_X)) {
+                    if (PAD_PRESSED(GAMEPAD_X)) {
                         if (tr->wall_button.set_effect_id != 0xffff) {
                             game_state_activate_effect(tr->wall_button.set_effect_id);
                         }
@@ -377,7 +377,7 @@ static void check_room_triggers(struct JOYSTICK *joy)
     }
 }
 
-static void update_game_state(struct JOYSTICK *joy)
+static void update_game_state(void)
 {
     game_state.frame_counter++;
     game_state.prompt.text = NULL;
@@ -388,7 +388,7 @@ static void update_game_state(struct JOYSTICK *joy)
     if (game_state.display.msg_save_frames_left > 0) game_state.display.msg_save_frames_left--;
 
     // update character
-    player_update(joy);
+    player_update();
     screen_follow_player();
     if (game_state.player.shoot_now && game_state.player.weapon_index != 0xff) {
         game_state.player.shoot_now = 0;
@@ -396,7 +396,7 @@ static void update_game_state(struct JOYSTICK *joy)
     }
 
     // update room
-    check_room_triggers(joy);
+    check_room_triggers();
     const struct RAVEN_ROOM_TRIGGER_INFO *door = game_state_check_player_trigger(1<<RAVEN_ROOM_TRIGGER_TYPE_DOOR);
     if (door != NULL && (door->door.req_flag_id == 0xffff || game_state_has_flag(door->door.req_flag_id))) {
         game_state.room_transition.enabled = true;
@@ -426,16 +426,26 @@ static void process_mod_event(uint8_t chan, uint8_t event)
 
 static void process_core_messages(void)
 {
+    bool got_joy = false;
+
     union CORE_MSG msg;
     while (core0_msg_try_recv(&msg)) {
         switch (msg.msg_header.type) {
         case CORE0_MSG_TYPE_MOD_EVENT:
             process_mod_event(msg.mod_event.chan, msg.mod_event.event);
-            return;
+            break;
+
+        case CORE0_MSG_TYPE_JOY_STATE:
+            game_state.joy_cur_state = msg.joy_state.cur;
+            if (! got_joy) {
+                game_state.joy_last_state = msg.joy_state.last;
+                got_joy = true;
+            }
+            break;
 
         default:
             printf("ERROR processing message: invalid messaged type %d\n", msg.msg_header.type);
-            return;
+            break;
         }
     }
 }
@@ -612,7 +622,7 @@ void game_state_blink_led(void)
     }
 }
 
-static void advance_room_transition(struct JOYSTICK *joy)
+static void advance_room_transition(void)
 {
 #define FADE_OUT_FRAMES 16
 #define BLACKOUT_FRAMES 8
@@ -627,7 +637,7 @@ static void advance_room_transition(struct JOYSTICK *joy)
     if (game_state.room_transition.frame == START_FADE_OUT) {
         // render and capture exiting old room
         RUN_PERF(update_us);
-        screen_render(joy);
+        screen_render();
         screen_save_to_scratch(0);
     } else if (game_state.room_transition.frame == START_FADE_IN) {
         // render and capture entering new room
@@ -635,7 +645,7 @@ static void advance_room_transition(struct JOYSTICK *joy)
         place_player_at_door_transition();
         screen_follow_player();
         RUN_PERF(update_us);
-        screen_render(joy);
+        screen_render();
         screen_save_to_scratch(1);
     } else {
         RUN_PERF(update_us);
@@ -657,16 +667,16 @@ static void advance_room_transition(struct JOYSTICK *joy)
     }
 }
 
-static void advance_game_state(struct JOYSTICK *joy)
+static void advance_game_state(void)
 {
-    process_joy_input(joy);
-    update_game_state(joy);
+    process_gamepad_input();
+    update_game_state();
     RUN_PERF(update_us);
 
-    screen_render(joy);
+    screen_render();
 }
 
-void game_main_loop(struct JOYSTICK *joy)
+void game_main_loop(void)
 {
     game_state_init();
     apply_savegame(&new_savegame);
@@ -674,27 +684,16 @@ void game_main_loop(struct JOYSTICK *joy)
     while (true) {
         RUN_PERF_START();
 
-        // request joy update
-        joy->last = joy->cur;
-        joy_wii_i2c_request_state(joy);
-        uint32_t joy_req_us = time_us_32();
-        RUN_PERF_AT(joy_req_us, joy_req_us);
-
         // process core messages while waiting for joy update
         process_core_messages();
         game_state_fps_count();
         game_state_blink_led();
 
-        // ensure 200us have elapsed since joy update request
-        while (time_us_32() - joy_req_us < 200) sleep_us(10);
-        joy_wii_i2c_read_state(joy);
-        RUN_PERF(joy_read_us);
-
         // advance game
         if (game_state.room_transition.enabled) {
-            advance_room_transition(joy);
+            advance_room_transition();
         } else {
-            advance_game_state(joy);
+            advance_game_state();
         }
 
         vga_swap_buffers(true);

@@ -139,3 +139,12 @@ void msg_mod_event(uint8_t chan, uint8_t event)
   msg.mod_event.event = event;
   send_to_core0(&msg);
 }
+
+void msg_joy_state(uint32_t cur, uint32_t last)
+{
+  union CORE_MSG msg;
+  msg.msg_header.type = CORE0_MSG_TYPE_JOY_STATE;
+  msg.joy_state.cur = cur;
+  msg.joy_state.last = last;
+  send_to_core0(&msg);
+}
